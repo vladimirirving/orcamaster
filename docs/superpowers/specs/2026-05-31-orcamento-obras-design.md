@@ -46,7 +46,7 @@ Cadastro central de cada licitação/obra:
 - Responsável (usuário da empresa)
 - Datas de início/entrega do orçamento
 
-Todas as demais entidades (planilha, BDI, cronograma, medições) são filhas de uma Obra.
+Hierarquia de propriedade: **Obra → Versão → (Grupo, BDI, CronogramaLinha, Item)**. Medição é filha direta de Versão (não de Obra) para garantir rastreabilidade dos item_ids versionados. Obra é apenas o contêiner de identidade e metadados — todas as entidades de orçamento pertencem a uma Versão específica.
 
 ### 3.2 Banco de Composições
 
@@ -58,13 +58,15 @@ Repositório unificado com três origens:
 
 Cada composição contém: código, descrição, unidade, lista de insumos (mão de obra, material, equipamento) com coeficientes e preço unitário calculado.
 
+**Precisão numérica:** todos os campos monetários (preço de insumo, preço unitário de composição, coeficiente) são armazenados como `NUMERIC(15,6)` no banco. Totais de Item e Versão são arredondados para `NUMERIC(15,2)` apenas na camada de apresentação e nos documentos exportados. Cálculos intermediários nunca arredondam para preservar fidelidade com as tabelas SINAPI/SICRO.
+
 ### 3.3 Editor de Planilha Orçamentária
 
-Coração do sistema. Estrutura hierárquica: **Grupo → Subgrupo → Item**.
+Coração do sistema. Estrutura hierárquica com **exatamente dois níveis de agrupamento**: Grupo → Subgrupo → Item. Profundidade máxima permitida: 2 (um Grupo pode conter Subgrupos, um Subgrupo não pode conter outros Subgrupos). O modelo de dados usa `pai_id` mas a API rejeita qualquer tentativa de criar um nó filho de um Subgrupo (profundidade > 2).
 
 Funcionalidades:
 - Busca de composições por código ou descrição (SINAPI, SICRO ou próprias)
-- Entrada de quantidades; preço unitário sempre calculado a partir da composição
+- Entrada de quantidades; preço unitário **snapshot**: ao associar uma composição ao item, o sistema copia e armazena `preco_unitario` da composição naquele momento. Atualizações posteriores do SINAPI/SICRO não alteram itens já inseridos em versões existentes. O orçamentista deve atualizar manualmente itens com flag `requer_revisao` se desejar o novo preço.
 - Cálculo automático de totais parciais e total geral (com e sem BDI)
 - Importação de estrutura de obras anteriores (cópia de template)
 - Importação via Excel (planilha própria da empresa)
@@ -99,7 +101,7 @@ Validação: percentuais de cada item devem somar 100% antes de permitir exporta
 
 ### 3.6 Medição de Obras
 
-Registro do avanço físico real contra o planejado. Por período de medição, o orçamentista registra o percentual executado por item.
+Registro do avanço físico real contra o planejado. A Medição pertence a uma **Versão** (não diretamente à Obra), garantindo que os `item_id` em `linhas_json` correspondam sempre aos itens da versão correta. Por período de medição, o orçamentista registra o percentual **acumulado** executado por item (não o incremento do período — o sistema calcula o avanço do período por diferença entre medições consecutivas).
 
 Relatórios gerados:
 - Comparativo planejado × realizado por item
@@ -205,6 +207,7 @@ tipo_obra, estado, responsavel_id, data_criacao, data_prazo
 id, obra_id, numero (1,2,3...), nome, criada_em, criada_por,
 bloqueada (bool), total_sem_bdi, total_com_bdi
 ```
+`total_sem_bdi` e `total_com_bdi` são recalculados e persistidos sempre que um Item é inserido, editado ou removido, e sempre que o BDI da versão é salvo. Não são calculados em tempo de consulta — são caches atualizados na escrita.
 
 **Grupo / Subgrupo**
 ```
@@ -233,21 +236,24 @@ descricao, unidade, coeficiente, preco_unitario
 
 **BDI**
 ```
-id, versao_id, ac, sg, r, df, lucro, iss, pis, cofins,
+id, versao_id UNIQUE, ac, sg, r, df, lucro, iss, pis, cofins,
 bdi_composto (calculado), memorial_json
 ```
+`UNIQUE(versao_id)` é enforçado no banco — existe exatamente um registro BDI por Versão. O endpoint de criação/atualização de BDI usa upsert (`INSERT ... ON CONFLICT (versao_id) DO UPDATE`).
 
 **CronogramaLinha**
 ```
-id, versao_id, item_id, distribuicao_json ({mes: percentual}),
+id, item_id, distribuicao_json ({mes: percentual}),
 total_percentual (deve = 100)
 ```
+`versao_id` é omitido: a versão é derivada via `item_id → Grupo → Versao`. Nenhuma FK duplicada para evitar inconsistência entre os dois campos.
 
 **Medicao**
 ```
-id, obra_id, periodo_inicio, periodo_fim, criada_por,
-linhas_json ({item_id: percentual_executado})
+id, versao_id, periodo_inicio, periodo_fim, criada_por,
+linhas_json ({item_id: percentual_executado_acumulado})
 ```
+Vinculada à Versão (não à Obra) para garantir que os `item_id` em `linhas_json` sempre referenciem itens da versão correta. `percentual_executado_acumulado` é o percentual total executado até esse período (0–100) — não o avanço incremental.
 
 **Usuario**
 ```
@@ -291,8 +297,8 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 1. Orçamentista acessa a versão ativa da obra
 2. Verifica alertas de validação (itens sem composição, BDI não configurado, cronograma incompleto)
 3. Clica em "Gerar pacote de licitação"
-4. Sistema processa em background (tarefa assíncrona)
-5. Notificação quando o zip estiver pronto para download
+4. Sistema processa em background (tarefa assíncrona via FastAPI BackgroundTasks)
+5. Frontend faz polling no endpoint `GET /obras/{id}/pacote/status` a cada 5 segundos até `status: "pronto"` — sem WebSocket, sem email, sem dependências externas
 6. Arquivo fica disponível por 7 dias; pode ser regerado a qualquer momento
 
 ### Versionamento
@@ -317,9 +323,11 @@ OBRA ATIVA: Rodovia SP-150 — Ampliação km 42 ao km 67  ·  Proc. 2024/0089  
 
 **Subtabs por módulo:**
 
-- **Orçamento:** Planilha Orçamentária | Composições | Memória de Cálculo | Curva ABC | Versões
+- **Orçamento:** Planilha Orçamentária | Composições | Memorial de Cálculo do BDI | Curva ABC | Versões
 - **Cronograma:** Cronograma Físico-Financeiro | Curva S
 - **Relatórios:** Curva ABC | Medições | Comparativo de Versões
+
+A **Curva ABC** aparece tanto em Orçamento quanto em Relatórios — ambas as entradas rotam para o mesmo componente, escopado à versão ativa. Não há duas implementações separadas.
 - **Base de Comp.:** SINAPI | SICRO | Composições Próprias | Importar Base
 
 **Agente IA:** Acessível via botão flutuante "✦ Assistente IA" disponível em qualquer tela dentro de uma obra. Abre painel lateral com histórico de conversa e acesso ao fluxo de geração de proposta.
@@ -335,6 +343,8 @@ OBRA ATIVA: Rodovia SP-150 — Ampliação km 42 ao km 67  ·  Proc. 2024/0089  
 | Cronograma com % ≠ 100% por item | Bloqueia exportação do cronograma |
 | Versão bloqueada sendo editada | Erro imediato, redireciona para versão ativa |
 | Importação SINAPI/SICRO com formato inválido | Erro com linha e coluna problemática |
+| Medição com item_id inexistente na versão | Erro de validação na importação/save |
+| BDI ausente na versão ao gerar pacote | Bloqueia geração com mensagem clara |
 
 ---
 
