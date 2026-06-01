@@ -83,7 +83,7 @@ Formulário configurável com parcelas:
 
 Calcula BDI composto pela fórmula padrão TCU. Gera memorial de cálculo automaticamente. Exibe aviso se parcelas estiverem fora dos limites referenciais do TCU (sem bloquear).
 
-Suporta BDIs diferenciados por tipo de serviço (ex: BDI reduzido para materiais com fornecimento).
+Na v1, um único BDI por versão de orçamento. BDIs diferenciados por tipo de serviço (ex: BDI reduzido para materiais com fornecimento) estão fora do escopo da v1.
 
 ### 3.5 Cronograma Físico-Financeiro
 
@@ -233,7 +233,7 @@ descricao, unidade, coeficiente, preco_unitario
 
 **BDI**
 ```
-id, obra_id, versao_id, ac, sg, r, df, lucro, iss, pis, cofins,
+id, versao_id, ac, sg, r, df, lucro, iss, pis, cofins,
 bdi_composto (calculado), memorial_json
 ```
 
@@ -366,5 +366,6 @@ OBRA ATIVA: Rodovia SP-150 — Ampliação km 42 ao km 67  ·  Proc. 2024/0089  
 - Integração com ERPs externos
 - Multiempresa / SaaS público
 - Permissões por obra individual
+- BDIs diferenciados por tipo de serviço (ex: BDI reduzido para materiais com fornecimento)
 
 Estas funcionalidades podem compor versões futuras.
