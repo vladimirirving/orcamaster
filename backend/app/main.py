@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, usuarios, obras
+from app.routers import auth, usuarios, obras, versoes
 from app.scheduler import start_scheduler, stop_scheduler
 
 
@@ -25,3 +25,4 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(usuarios.router)
 app.include_router(obras.router)
+app.include_router(versoes.router)

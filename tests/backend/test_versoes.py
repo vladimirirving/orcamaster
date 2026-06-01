@@ -89,3 +89,56 @@ async def test_clone_preserva_subgrupos(
     assert len(roots) == 1
     assert len(subs) == 1
     assert subs[0].pai_id == roots[0].id  # correct parent mapping
+
+
+@pytest.mark.asyncio
+async def test_soft_delete_versao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa
+):
+    resp = await client.delete(f"/versoes/{versao_ativa.id}", headers=auth_headers)
+    assert resp.status_code == 204
+
+    await db_session.refresh(versao_ativa)
+    assert versao_ativa.deletada_em is not None
+
+
+@pytest.mark.asyncio
+async def test_soft_delete_versao_not_found(
+    client: AsyncClient, auth_headers: dict
+):
+    resp = await client.delete("/versoes/99999", headers=auth_headers)
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_restore_versao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa
+):
+    from datetime import datetime
+    versao_ativa.deletada_em = datetime.utcnow()
+    versao_ativa.bloqueada = True
+    await db_session.commit()
+
+    resp = await client.post(f"/versoes/{versao_ativa.id}/restore", headers=auth_headers)
+    assert resp.status_code == 200
+
+    await db_session.refresh(versao_ativa)
+    assert versao_ativa.deletada_em is None
+
+
+@pytest.mark.asyncio
+async def test_restore_recusado_se_ja_existe_versao_ativa(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa
+):
+    from datetime import datetime
+    v2 = Versao(obra_id=obra.id, numero=2, bloqueada=True,
+                deletada_em=datetime.utcnow())
+    db_session.add(v2)
+    await db_session.commit()
+
+    # versao_ativa is still active — restoring v2 would create two active versões
+    resp = await client.post(f"/versoes/{v2.id}/restore", headers=auth_headers)
+    assert resp.status_code == 409
