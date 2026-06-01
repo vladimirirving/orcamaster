@@ -26,6 +26,6 @@ class ItemOut(BaseModel):
     unidade: str
     preco_unitario_sem_bdi: Optional[Decimal] = None
     preco_unitario_com_bdi: Optional[Decimal] = None
-    total: Decimal
+    total: Optional[Decimal] = None
     etiqueta_revisao: bool
     requer_revisao: bool
