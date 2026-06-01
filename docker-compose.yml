@@ -24,6 +24,7 @@ services:
       - pacotes_data:/app/pacotes
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-orcaavml}:${POSTGRES_PASSWORD:-orcaavml}@db:5432/${POSTGRES_DB:-orcaavml}
+      TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-orcaavml}:${POSTGRES_PASSWORD:-orcaavml}@db:5432/${POSTGRES_DB:-orcaavml}_test
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-32-chars-min}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       PACOTES_DIR: /app/pacotes
