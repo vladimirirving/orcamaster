@@ -142,7 +142,7 @@ async def update_grupo(
     grupo = await _get_grupo_da_empresa(grupo_id, current_user, db)
     await _get_versao_ativa(grupo.versao_id, current_user, db)
 
-    for field, value in body.model_dump(exclude_none=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         setattr(grupo, field, value)
     await db.commit()
     await db.refresh(grupo)
@@ -237,7 +237,7 @@ async def update_item(
     grupo = r_g.scalar_one()
     versao = await _get_versao_ativa(grupo.versao_id, current_user, db)
 
-    for field, value in body.model_dump(exclude_none=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
 
     await db.flush()
