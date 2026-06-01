@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "orcaavml-backend"
@@ -21,7 +21,8 @@ dependencies = [
     "weasyprint==62.3",
     "openpyxl==3.1.5",
     "anthropic==0.40.0",
-    "pypdf2==3.0.1",
+    "pypdf>=4.0",
+    "bcrypt>=3.0,<4.0",
 ]
 
 [project.optional-dependencies]
