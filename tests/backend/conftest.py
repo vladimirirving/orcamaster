@@ -15,7 +15,7 @@ engine = create_async_engine(TEST_DB_URL)
 TestSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session")
 async def setup_test_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
