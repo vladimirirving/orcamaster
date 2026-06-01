@@ -1,0 +1,40 @@
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', to: '/' },
+  { label: 'Obras', to: '/obras' },
+  { label: 'Orçamento', to: '/orcamento' },
+  { label: 'BDI', to: '/bdi' },
+  { label: 'Cronograma', to: '/cronograma' },
+  { label: 'Medição', to: '/medicao' },
+  { label: 'Relatórios', to: '/relatorios' },
+  { label: 'Base de Comp.', to: '/composicoes' },
+]
+
+export default function TopBar() {
+  const { logout, papel } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    await logout()
+    navigate('/login')
+  }
+
+  return (
+    <header className="bg-gray-900 text-white px-4 h-12 flex items-center gap-6 shrink-0">
+      <span className="font-bold text-blue-400">AVML</span>
+      <nav className="flex gap-4 text-sm">
+        {NAV_ITEMS.map(item => (
+          <Link key={item.to} to={item.to} className="hover:text-blue-300 transition-colors">
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+      <div className="ml-auto flex items-center gap-3 text-sm">
+        <span className="text-gray-400 capitalize">{papel}</span>
+        <button onClick={handleLogout} className="hover:text-red-400 transition-colors">Sair</button>
+      </div>
+    </header>
+  )
+}
