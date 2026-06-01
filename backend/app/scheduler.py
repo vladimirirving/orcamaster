@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import select, update, delete
 from app.database import AsyncSessionLocal
@@ -17,7 +17,7 @@ _scheduler = BackgroundScheduler()
 
 async def purge_versoes_job() -> None:
     """Hard-delete Versoes soft-deleted more than 90 days ago (CASCADE removes PacoteJobs)."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    cutoff = datetime.utcnow() - timedelta(days=90)
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Versao).where(Versao.deletada_em != None, Versao.deletada_em < cutoff)
@@ -47,7 +47,7 @@ async def purge_versoes_job() -> None:
 
 async def expire_pacotes_job() -> None:
     """Mark PacoteJobs as expirado when their file is older than 7 days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.utcnow() - timedelta(days=7)
     async with AsyncSessionLocal() as session:
         await session.execute(
             update(PacoteJob)
