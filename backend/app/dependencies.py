@@ -15,6 +15,8 @@ async def get_current_user(
 ) -> Usuario:
     try:
         payload = decode_access_token(credentials.credentials)
+        if payload.get("type") == "refresh":
+            raise ValueError("Refresh token não pode ser usado como access token")
         user_id = int(payload["sub"])
     except (ValueError, KeyError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
