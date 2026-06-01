@@ -20,6 +20,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
+      - ./tests:/app/tests
       - pacotes_data:/app/pacotes
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-orcaavml}:${POSTGRES_PASSWORD:-orcaavml}@db:5432/${POSTGRES_DB:-orcaavml}
