@@ -28,9 +28,14 @@ Sistema web interno para empresas de engenharia de infraestrutura gerenciarem o 
 | PDF | WeasyPrint |
 | Excel | openpyxl |
 | Auth | JWT com refresh token |
+| Jobs agendados | APScheduler (embutido no processo FastAPI) |
 | Infraestrutura | Docker Compose (on-premise ou VPS) |
 
 Arquitetura monolítica — frontend e backend no mesmo repositório, deploy via Docker Compose. Sem dependências de serviços pagos obrigatórios.
+
+**Jobs agendados (APScheduler):** dois jobs recorrentes registrados na inicialização do servidor:
+- **Purge de versões excluídas** — roda diariamente; hard-deleta `Versao` onde `deletada_em + 90 dias < agora`, após remover PacoteJobs associados.
+- **Expiração de pacotes** — roda diariamente; atualiza `PacoteJob.status = 'expirado'` onde `gerado_em + 7 dias < agora AND status = 'pronto'`.
 
 ---
 
@@ -168,6 +173,10 @@ Tela inicial do sistema após login. Apresenta visão consolidada da empresa e d
 | Distribuição por grupo | Participação percentual de cada Grupo de serviço no total sem BDI | Gráfico de rosca interativo — clicar no grupo abre a planilha filtrada |
 | Curva S | Avanço financeiro planejado (cronograma) vs. realizado (medições), mês a mês | Gráfico de linha com duas séries + área sombreada entre elas |
 | Progresso físico | % acumulado executado por Grupo (último período de Medição) vs. planejado | Barras horizontais lado a lado |
+
+**Algoritmo da série "realizado" da Curva S:** para cada mês do cronograma, localizar a Medição com `MAX(periodo_fim) ≤ último dia do mês` — em caso de empate em `periodo_fim`, desempatar por `MAX(id)`. Para cada Item, multiplicar `percentual_executado_acumulado` pelo `Item.total_com_bdi` (snapshot). Somar todos os itens para obter o valor financeiro acumulado realizado no mês. A série exibe o acumulado (não incremental), espelhando a Curva S planejada do cronograma.
+
+**"Último período de Medição"** (painéis Progresso físico e Curva S): `MAX(periodo_fim)`, desempate por `MAX(id)`. Nunca por `criado_em` ou ordem de inserção arbitrária.
 | Status do orçamento | Itens: total · sem composição · com `requer_revisao` · com `etiqueta_revisao` | Gráfico de barras empilhadas ou donut com legenda |
 | Banco de composições | Contagem de composições por origem (SINAPI · SICRO · Próprias) e quantas estão em uso na versão ativa | Gráfico de barras agrupadas |
 | Histórico de BDI | Evolução do `bdi_composto` ao longo das entradas em `historico_json` | Gráfico de linha |
@@ -247,6 +256,8 @@ deletada_em (timestamp nullable — null = ativa ou bloqueada, preenchido = soft
 ```
 `total_sem_bdi` e `total_com_bdi` são recalculados e persistidos sempre que um Item é inserido, editado ou removido, e sempre que o BDI da versão é salvo. Não são calculados em tempo de consulta — são caches atualizados na escrita. `deletada_em` suporta a recuperação por 90 dias: versões excluídas são soft-deleted (campo preenchido), ocultadas da UI, e purgadas permanentemente por job agendado após `deletada_em + 90 dias`.
 
+> **Definição canônica de "versão ativa":** `bloqueada = false AND deletada_em IS NULL`. Todo código que filtra "versões ativas" — incluindo Dashboard, propagação SINAPI/SICRO, módulo Medição e relatórios — deve aplicar **ambas** as condições. Versões bloqueadas (`bloqueada = true`) e versões soft-deleted (`deletada_em IS NOT NULL`) são excluídas mesmo que satisfaçam a outra condição.
+
 **Grupo / Subgrupo**
 ```
 id, versao_id, pai_id (null para grupos raiz), ordem, nome, codigo
@@ -258,7 +269,7 @@ id, grupo_id, ordem, composicao_id (nullable — null quando item criado sem com
 quantidade, unidade,
 preco_unitario_sem_bdi (snapshot — NUMERIC(15,6), armazenado na inserção/atualização; null se composicao_id for null),
 preco_unitario_com_bdi (snapshot — derivado de preco_unitario_sem_bdi × (1 + BDI), armazenado; null se composicao_id for null),
-total (gerado — quantidade × preco_unitario_sem_bdi, coluna GENERATED ALWAYS AS STORED; null quando preco_unitario_sem_bdi for null),
+total (gerado — quantidade × COALESCE(preco_unitario_sem_bdi, 0), coluna GENERATED ALWAYS AS STORED; retorna 0 quando preco_unitario_sem_bdi for null — itens sem composição contribuem com zero ao total da versão, sem serem silenciosamente excluídos do SUM),
 etiqueta_revisao (bool, manual — marcado pelo orçamentista),
 requer_revisao (bool, automático — setado pelo sistema quando a composição base foi atualizada no SINAPI/SICRO)
 ```
@@ -282,13 +293,16 @@ descricao, unidade, coeficiente, preco_unitario
 id, versao_id UNIQUE, ac, sg, r, df, lucro, iss, pis, cofins,
 bdi_composto (armazenado — calculado em cada salvamento, NOT GENERATED), historico_json
 ```
-`UNIQUE(versao_id)` é enforçado no banco — existe exatamente um registro BDI por Versão. `bdi_composto` é uma coluna plain armazenada (não `GENERATED ALWAYS`): a fórmula TCU é calculada na camada de aplicação antes do upsert e gravada explicitamente. O endpoint usa upsert:
+`UNIQUE(versao_id)` é enforçado no banco — existe exatamente um registro BDI por Versão. `bdi_composto` é uma coluna plain armazenada (não `GENERATED ALWAYS`): a fórmula TCU é calculada na camada de aplicação antes do upsert e gravada explicitamente. O endpoint usa upsert com `bdi_composto` presente em **ambos** os branches (INSERT e ON CONFLICT):
 ```sql
-INSERT ... ON CONFLICT (versao_id) DO UPDATE SET
+INSERT INTO bdi (versao_id, ac, sg, r, df, lucro, iss, pis, cofins, bdi_composto, historico_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, <valor_calculado>, '[<snapshot_inicial>]'::jsonb)
+ON CONFLICT (versao_id) DO UPDATE SET
   ac=..., sg=..., r=..., df=..., lucro=..., iss=..., pis=..., cofins=...,
   bdi_composto=<valor_calculado>,
   historico_json = historico_json || novo_snapshot
 ```
+O branch INSERT inicializa `historico_json` com o primeiro snapshot; o branch UPDATE faz append. Em ambos os casos `bdi_composto` nunca é NULL após o upsert.
 
 `historico_json` é um array append-only de snapshots: `[{timestamp, ac, sg, r, df, lucro, iss, pis, cofins, bdi_composto}]`. A cada salvamento um novo snapshot é **adicionado ao array** — nunca substituído. O estado atual é sempre o último elemento. Isso preserva rastreabilidade para auditoria TCU.
 
@@ -319,6 +333,8 @@ id, empresa_id, versao_id, status (pendente|processando|pronto|erro|expirado),
 criado_em, atualizado_em, url_download (nullable), erro_mensagem (nullable), gerado_em (nullable)
 ```
 Registra cada solicitação de geração de pacote de licitação. O limite de 2 jobs simultâneos por empresa é enforçado verificando `COUNT(*) WHERE empresa_id = ? AND status IN ('pendente','processando')` dentro de uma transação serializable antes de inserir novo job. Arquivo expira após 7 dias (`expirado` setado por job agendado quando `gerado_em + 7 dias < agora`).
+
+`versao_id` FK: `ON DELETE CASCADE` — ao hard-purgar uma Versão (após 90 dias de soft-delete), todos os seus PacoteJobs são eliminados em cascata. O job de purge de versões (APScheduler) executa na seguinte ordem: (1) cancela jobs `pendente|processando` da versão; (2) deleta a Versão (CASCADE elimina os PacoteJobs restantes). Isso garante que o prazo de 7 dias dos arquivos nunca excede o prazo de 90 dias da versão.
 
 **Usuario**
 ```
@@ -354,7 +370,7 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 2. Faz upload do arquivo CSV/Excel da CEF (SINAPI) ou DNIT (SICRO)
 3. Sistema processa e exibe diff: novos itens, itens alterados (preço/descrição), itens desativados
 4. Admin revisa o diff e confirma a importação
-5. Sistema atualiza o banco; composições próprias derivadas de itens alterados recebem flag `requer_revisao = true` na tabela `Composicao`; todos os `Item` em **versões não bloqueadas** (`Versao.bloqueada = false`) que referenciam essas composições recebem `requer_revisao = true` na tabela `Item`. Versões bloqueadas (`bloqueada = true`) são registros imutáveis de auditoria — seus Items **não recebem** o flag, preservando o estado exato do momento de aprovação
+5. Sistema atualiza o banco; composições próprias derivadas de itens alterados recebem flag `requer_revisao = true` na tabela `Composicao`; todos os `Item` em **versões ativas** (`bloqueada = false AND deletada_em IS NULL`) que referenciam essas composições recebem `requer_revisao = true` na tabela `Item`. Versões bloqueadas e versões soft-deleted são registros imutáveis — seus Items **não recebem** o flag
 6. Notificação enviada para Orçamentistas listando obras/versões com itens marcados
 
 ### Geração do Pacote de Licitação
@@ -363,7 +379,7 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 2. Verifica alertas de validação (itens sem composição, BDI não configurado, cronograma incompleto)
 3. Clica em "Gerar pacote de licitação"
 4. Sistema processa em background (tarefa assíncrona via FastAPI BackgroundTasks)
-5. Frontend faz polling no endpoint `GET /versoes/{versao_id}/pacote/status` a cada 5 segundos. Resposta:
+5. Frontend faz polling no endpoint `GET /versoes/{versao_id}/pacote/status` a cada 5 segundos. O endpoint retorna o **PacoteJob mais recente** da versão (`ORDER BY criado_em DESC LIMIT 1`) — garantindo que após "Tentar novamente" o status do novo job substitua o anterior. Resposta:
    ```json
    { "status": "pendente"|"processando"|"pronto"|"erro"|"expirado",
      "url_download": "<url ou null>",
@@ -378,15 +394,15 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 1. Orçamentista acessa "Obras → Nova obra" e seleciona "Usar obra anterior como template"
 2. Escolhe a obra-fonte e qual versão copiar
 3. Sistema cria a nova Obra com metadados zerados (nome, processo, cliente, etc. devem ser preenchidos)
-4. Cria a Versão 1 da nova obra com cópia dos Grupos e Itens da versão-fonte; preços dos Itens são **refrescados** da Composição atual (SINAPI/SICRO vigente) — nunca herdados da obra-fonte. `requer_revisao` é resetado para `false` em todos os Itens
-5. BDI: copiado da versão-fonte com as mesmas parcelas (ac, sg, r, df, lucro, iss, pis, cofins). `historico_json` inicia com um único snapshot (timestamp = agora) refletindo o BDI copiado — o histórico pré-cópia da obra-fonte não é transferido
+4. Cria a Versão 1 da nova obra com cópia dos Grupos e Itens da versão-fonte; preços dos Itens são **refrescados** da Composição atual (SINAPI/SICRO vigente) — nunca herdados da obra-fonte. `requer_revisao` é resetado para `false` em todos os Itens. `etiqueta_revisao` é **resetado para `false`** — as marcações manuais da obra-fonte não fazem sentido no contexto da nova obra
+5. BDI: se a versão-fonte **tem** BDI configurado, é copiado com as mesmas parcelas (ac, sg, r, df, lucro, iss, pis, cofins) e `historico_json` inicia com um único snapshot (timestamp = agora) refletindo o BDI copiado — o histórico pré-cópia da obra-fonte não é transferido. Se a versão-fonte **não tem** BDI configurado (nenhuma linha BDI no banco para aquele `versao_id`), a nova versão é criada igualmente sem BDI — o orçamentista deverá configurar o BDI antes de exportar documentos. Não é erro; o sistema exibe o aviso padrão de "BDI ausente"
 6. CronogramaLinha: **não copiada**. A nova obra tem um cronograma em branco. Os meses da obra-fonte não correspondem necessariamente à nova obra — o orçamentista preenche o cronograma manualmente
 7. Medições: **não copiadas**. Permanecem na obra-fonte
 
 ### Versionamento
 
 1. Orçamentista acessa obra e clica em "Nova revisão"
-2. Sistema cria versão N+1 com cópia completa da planilha (Grupos, Itens com snapshots de preço refrescados da Composição atual), BDI e cronograma da versão anterior. **Medições não são copiadas** — permanecem na versão de origem e são acessíveis via histórico dessa versão. Como os preços são refrescados no momento da cópia, `requer_revisao` é resetado para `false` em todos os Itens da nova versão — os preços acabaram de ser atualizados e não há alertas pendentes.
+2. Sistema cria versão N+1 com cópia completa da planilha (Grupos, Itens com snapshots de preço refrescados da Composição atual), BDI e cronograma da versão anterior. **Medições não são copiadas** — permanecem na versão de origem e são acessíveis via histórico dessa versão. Como os preços são refrescados no momento da cópia, `requer_revisao` é resetado para `false` em todos os Itens da nova versão — os preços acabaram de ser atualizados e não há alertas pendentes. `etiqueta_revisao` é **copiado verbatim** da versão anterior — marcações manuais do orçamentista são contexto relevante para a revisão em andamento.
 3. Versão anterior é bloqueada automaticamente
 4. Orçamentista trabalha na nova versão normalmente
 5. Tela "Versões" permite comparar qualquer duas versões lado a lado (diff de itens, valores)
