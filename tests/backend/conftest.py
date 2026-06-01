@@ -12,6 +12,8 @@ from app.models.obra import Obra
 from app.models.versao import Versao
 from app.services.auth_service import hash_password, create_access_token
 from datetime import date
+from decimal import Decimal as D
+from app.models.composicao import Composicao
 
 _default_test_db = "postgresql+asyncpg://orcaavml:orcaavml@localhost:5432/orcaavml_test"
 TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", _default_test_db)
@@ -94,3 +96,35 @@ async def versao_ativa(db_session: AsyncSession, obra: Obra, admin_user: Usuario
     db_session.add(v)
     await db_session.flush()
     return v
+
+
+@pytest_asyncio.fixture
+async def composicao_sinapi(db_session: AsyncSession) -> Composicao:
+    c = Composicao(
+        empresa_id=None,
+        origem="sinapi",
+        codigo="94966",
+        descricao="ESCAVACAO MECANIZADA DE VALA",
+        unidade="M3",
+        preco_unitario=D("45.230000"),
+        requer_revisao=False,
+    )
+    db_session.add(c)
+    await db_session.flush()
+    return c
+
+
+@pytest_asyncio.fixture
+async def composicao_propria(db_session: AsyncSession, empresa: Empresa) -> Composicao:
+    c = Composicao(
+        empresa_id=empresa.id,
+        origem="propria",
+        codigo="P-001",
+        descricao="SERVICO PROPRIO TESTE",
+        unidade="UN",
+        preco_unitario=D("100.000000"),
+        requer_revisao=False,
+    )
+    db_session.add(c)
+    await db_session.flush()
+    return c
