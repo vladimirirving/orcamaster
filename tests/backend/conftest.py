@@ -1,3 +1,4 @@
+import os
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -9,27 +10,22 @@ from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.services.auth_service import hash_password
 
-TEST_DB_URL = "postgresql+asyncpg://orcaavml:orcaavml@localhost:5432/orcaavml_test"
-
-engine = create_async_engine(TEST_DB_URL)
-TestSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-
-
-@pytest_asyncio.fixture(scope="session")
-async def setup_test_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+_default_test_db = "postgresql+asyncpg://orcaavml:orcaavml@localhost:5432/orcaavml_test"
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", _default_test_db)
 
 
 @pytest_asyncio.fixture
-async def db_session(setup_test_db):
+async def db_session():
+    engine = create_async_engine(TEST_DB_URL)
+    TestSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     async with TestSessionLocal() as session:
         yield session
         await session.rollback()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
