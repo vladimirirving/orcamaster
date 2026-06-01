@@ -26,7 +26,7 @@ async def setup_test_db():
 
 
 @pytest_asyncio.fixture
-async def db_session():
+async def db_session(setup_test_db):
     async with TestSessionLocal() as session:
         yield session
         await session.rollback()
