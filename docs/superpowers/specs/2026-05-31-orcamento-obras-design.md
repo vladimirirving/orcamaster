@@ -46,7 +46,7 @@ Cadastro central de cada licitação/obra:
 - Responsável (usuário da empresa)
 - Datas de início/entrega do orçamento
 
-Hierarquia de propriedade: **Obra → Versão → (Grupo, BDI, CronogramaLinha, Item)**. Medição é filha direta de Versão (não de Obra) para garantir rastreabilidade dos item_ids versionados. Obra é apenas o contêiner de identidade e metadados — todas as entidades de orçamento pertencem a uma Versão específica.
+Hierarquia de propriedade: **Obra → Versão → (Grupo, BDI, Item, Medição)**. CronogramaLinha é filho indireto de Versão via `item_id → Grupo → Versão` (sem FK direta em `versao_id` — ver seção 5). Obra é apenas o contêiner de identidade e metadados — todas as entidades de orçamento pertencem a uma Versão específica.
 
 ### 3.2 Banco de Composições
 
@@ -66,7 +66,7 @@ Coração do sistema. Estrutura hierárquica com **exatamente dois níveis de ag
 
 Funcionalidades:
 - Busca de composições por código ou descrição (SINAPI, SICRO ou próprias)
-- Entrada de quantidades; preço unitário **snapshot**: ao associar uma composição ao item, o sistema copia e armazena `preco_unitario` da composição naquele momento. Atualizações posteriores do SINAPI/SICRO não alteram itens já inseridos em versões existentes. O orçamentista deve atualizar manualmente itens com flag `requer_revisao` se desejar o novo preço.
+- Entrada de quantidades; preço unitário **snapshot**: ao associar uma composição ao item, o sistema copia e armazena `preco_unitario` da composição naquele momento. Atualizações posteriores do SINAPI/SICRO não alteram itens já inseridos em versões existentes. O orçamentista clica em "Atualizar preço" no item (botão inline na grid da planilha) para aceitar o novo preço — isso sobrescreve o snapshot armazenado e limpa o flag `requer_revisao` do item. Cópia de template de obra anterior: os preços são sempre **refrescados** da tabela SINAPI/SICRO atual no momento da cópia — nunca herdados da obra-fonte.
 - Cálculo automático de totais parciais e total geral (com e sem BDI)
 - Importação de estrutura de obras anteriores (cópia de template)
 - Importação via Excel (planilha própria da empresa)
@@ -83,7 +83,7 @@ Formulário configurável com parcelas:
 - Lucro (L)
 - Impostos: ISS, PIS, COFINS
 
-Calcula BDI composto pela fórmula padrão TCU. Gera memorial de cálculo automaticamente. Exibe aviso se parcelas estiverem fora dos limites referenciais do TCU (sem bloquear).
+Calcula BDI composto pela fórmula padrão TCU. A cada salvamento, o sistema adiciona um snapshot ao `historico_json` do BDI — preservando o histórico completo de alterações para auditoria TCU. Exibe aviso se parcelas estiverem fora dos limites referenciais do TCU (sem bloquear).
 
 Na v1, um único BDI por versão de orçamento. BDIs diferenciados por tipo de serviço (ex: BDI reduzido para materiais com fornecimento) estão fora do escopo da v1.
 
@@ -101,7 +101,11 @@ Validação: percentuais de cada item devem somar 100% antes de permitir exporta
 
 ### 3.6 Medição de Obras
 
-Registro do avanço físico real contra o planejado. A Medição pertence a uma **Versão** (não diretamente à Obra), garantindo que os `item_id` em `linhas_json` correspondam sempre aos itens da versão correta. Por período de medição, o orçamentista registra o percentual **acumulado** executado por item (não o incremento do período — o sistema calcula o avanço do período por diferença entre medições consecutivas).
+Registro do avanço físico real contra o planejado. A Medição pertence a uma **Versão** (não diretamente à Obra), garantindo que os `item_id` em `linhas_json` correspondam sempre aos itens da versão correta. O orçamentista registra o percentual **acumulado** executado por item (0–100) — não o incremento do período. O sistema calcula o avanço do período por diferença entre medições consecutivas da mesma versão.
+
+**Baseline da primeira medição:** a primeira Medição de uma versão parte de 0% acumulado. Se uma nova versão é criada após progresso físico real, o orçamentista deve registrar uma medição de baseline (com os percentuais acumulados reais) antes de continuar o registro normal. Medições de versões anteriores **não são copiadas** para a nova versão — permanecem acessíveis pela versão de origem. O módulo Relatórios permite comparar medições entre versões distintas da mesma obra.
+
+**Versão ativa para medição:** o módulo Medição sempre opera sobre a versão ativa da obra (a não bloqueada). Não é possível registrar medições em versões bloqueadas.
 
 Relatórios gerados:
 - Comparativo planejado × realizado por item
@@ -217,9 +221,13 @@ id, versao_id, pai_id (null para grupos raiz), ordem, nome, codigo
 **Item**
 ```
 id, grupo_id, ordem, composicao_id, quantidade, unidade,
-preco_unitario_sem_bdi (calculado), preco_unitario_com_bdi (calculado),
-total (calculado), etiqueta_revisao (bool)
+preco_unitario_sem_bdi (snapshot — NUMERIC(15,6), armazenado na inserção/atualização),
+preco_unitario_com_bdi (snapshot — derivado de preco_unitario_sem_bdi × (1 + BDI), armazenado),
+total (gerado — quantidade × preco_unitario_sem_bdi, coluna GENERATED ALWAYS AS STORED),
+etiqueta_revisao (bool, manual — marcado pelo orçamentista),
+requer_revisao (bool, automático — setado pelo sistema quando a composição base foi atualizada no SINAPI/SICRO)
 ```
+`preco_unitario_sem_bdi` e `preco_unitario_com_bdi` **não são calculados em tempo de consulta** — são snapshots armazenados. `total` é uma coluna `GENERATED ALWAYS AS (quantidade * preco_unitario_sem_bdi) STORED` no PostgreSQL, suportando índice funcional para Curva ABC.
 
 **Composicao**
 ```
@@ -237,16 +245,24 @@ descricao, unidade, coeficiente, preco_unitario
 **BDI**
 ```
 id, versao_id UNIQUE, ac, sg, r, df, lucro, iss, pis, cofins,
-bdi_composto (calculado), memorial_json
+bdi_composto (calculado), historico_json
 ```
-`UNIQUE(versao_id)` é enforçado no banco — existe exatamente um registro BDI por Versão. O endpoint de criação/atualização de BDI usa upsert (`INSERT ... ON CONFLICT (versao_id) DO UPDATE`).
+`UNIQUE(versao_id)` é enforçado no banco — existe exatamente um registro BDI por Versão. O endpoint usa upsert (`INSERT ... ON CONFLICT (versao_id) DO UPDATE SET ac=..., historico_json = historico_json || novo_snapshot`).
+
+`historico_json` é um array append-only de snapshots: `[{timestamp, ac, sg, r, df, lucro, iss, pis, cofins, bdi_composto}]`. A cada salvamento um novo snapshot é **adicionado ao array** — nunca substituído. O estado atual é sempre o último elemento. Isso preserva rastreabilidade para auditoria TCU.
 
 **CronogramaLinha**
 ```
-id, item_id, distribuicao_json ({mes: percentual}),
-total_percentual (deve = 100)
+id, item_id (FK → Item ON DELETE CASCADE), distribuicao_json ({mes: percentual}),
+total_percentual (deve = 100 — soma dos percentuais do item em todos os meses, não por coluna)
 ```
-`versao_id` é omitido: a versão é derivada via `item_id → Grupo → Versao`. Nenhuma FK duplicada para evitar inconsistência entre os dois campos.
+`versao_id` é omitido: a versão é derivada via `item_id → Grupo → Versao`. A query de cópia no workflow de versionamento usa:
+```sql
+INSERT INTO cronograma_linha (item_id, distribuicao_json, total_percentual)
+SELECT mapa_itens.novo_item_id, cl.distribuicao_json, cl.total_percentual
+FROM cronograma_linha cl JOIN mapa_itens ON cl.item_id = mapa_itens.item_id_antigo;
+```
+`ON DELETE CASCADE` em `item_id`: ao remover um item da planilha, sua CronogramaLinha é eliminada automaticamente, prevenindo linhas órfãs que bloqueariam a validação de exportação.
 
 **Medicao**
 ```
@@ -289,8 +305,8 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 2. Faz upload do arquivo CSV/Excel da CEF (SINAPI) ou DNIT (SICRO)
 3. Sistema processa e exibe diff: novos itens, itens alterados (preço/descrição), itens desativados
 4. Admin revisa o diff e confirma a importação
-5. Sistema atualiza o banco; composições próprias derivadas de itens alterados recebem flag `requer_revisao`
-6. Notificação enviada para Orçamentistas sobre itens que precisam de revisão
+5. Sistema atualiza o banco; composições próprias derivadas de itens alterados recebem flag `requer_revisao = true` na tabela `Composicao`; todos os `Item` em versões ativas que referenciam essas composições recebem `requer_revisao = true` na tabela `Item`
+6. Notificação enviada para Orçamentistas listando obras/versões com itens marcados
 
 ### Geração do Pacote de Licitação
 
@@ -298,13 +314,20 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 2. Verifica alertas de validação (itens sem composição, BDI não configurado, cronograma incompleto)
 3. Clica em "Gerar pacote de licitação"
 4. Sistema processa em background (tarefa assíncrona via FastAPI BackgroundTasks)
-5. Frontend faz polling no endpoint `GET /obras/{id}/pacote/status` a cada 5 segundos até `status: "pronto"` — sem WebSocket, sem email, sem dependências externas
-6. Arquivo fica disponível por 7 dias; pode ser regerado a qualquer momento
+5. Frontend faz polling no endpoint `GET /versoes/{versao_id}/pacote/status` a cada 5 segundos. Resposta:
+   ```json
+   { "status": "pendente"|"processando"|"pronto"|"erro"|"expirado",
+     "url_download": "<url ou null>",
+     "erro_mensagem": "<string ou null>",
+     "gerado_em": "<ISO8601 ou null>" }
+   ```
+   Loop termina em `pronto`, `erro` ou `expirado`. Em `erro`, UI exibe mensagem e botão "Tentar novamente".
+6. Arquivo fica disponível por 7 dias (`expirado` após esse prazo); pode ser regerado a qualquer momento. Máximo 2 jobs simultâneos por empresa — tentativas adicionais retornam `status: "pendente"` na fila.
 
 ### Versionamento
 
 1. Orçamentista acessa obra e clica em "Nova revisão"
-2. Sistema cria versão N+1 com cópia completa da planilha, BDI e cronograma da versão anterior
+2. Sistema cria versão N+1 com cópia completa da planilha (Grupos, Itens com snapshots de preço refrescados da Composição atual), BDI e cronograma da versão anterior. **Medições não são copiadas** — permanecem na versão de origem e são acessíveis via histórico dessa versão.
 3. Versão anterior é bloqueada automaticamente
 4. Orçamentista trabalha na nova versão normalmente
 5. Tela "Versões" permite comparar qualquer duas versões lado a lado (diff de itens, valores)
@@ -345,6 +368,8 @@ A **Curva ABC** aparece tanto em Orçamento quanto em Relatórios — ambas as e
 | Importação SINAPI/SICRO com formato inválido | Erro com linha e coluna problemática |
 | Medição com item_id inexistente na versão | Erro de validação na importação/save |
 | BDI ausente na versão ao gerar pacote | Bloqueia geração com mensagem clara |
+| Item com `requer_revisao = true` ao gerar pacote | Aviso não-bloqueante listando os itens afetados |
+| CronogramaLinha órfã (item_id inexistente) | Impedido por ON DELETE CASCADE — não pode ocorrer |
 
 ---
 
