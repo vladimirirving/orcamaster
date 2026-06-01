@@ -21,6 +21,7 @@ Sistema web interno para empresas de engenharia de infraestrutura gerenciarem o 
 | Frontend | React + TypeScript + Vite |
 | UI Components | shadcn/ui |
 | Tabelas/grids | TanStack Table |
+| Gráficos | Recharts |
 | Backend | Python + FastAPI |
 | Banco de dados | PostgreSQL |
 | Agente IA | Claude API (claude-sonnet-4-6) com tool use |
@@ -143,6 +144,38 @@ O orçamentista aciona "Gerar pacote de licitação" na versão ativa. O sistema
 | Composições analíticas dos serviços | PDF |
 | Curva ABC | PDF + Excel |
 | Proposta para pregão (opcional) | PDF |
+
+### 3.11 Dashboard
+
+Tela inicial do sistema após login. Apresenta visão consolidada da empresa e da obra ativa em painéis visuais. Todos os dados são leitura pura — nenhuma lógica de negócio nova; todas as métricas são derivadas das entidades existentes.
+
+**Dois níveis de visão, alternáveis via toggle:**
+
+**Visão Empresa** — panorama de todas as obras da empresa:
+
+| Painel | Conteúdo | Tipo de gráfico |
+|--------|----------|----------------|
+| Portfólio de obras | Cards por obra: nome, estado (`em_elaboracao` \| `concluido` \| `arquivado`), valor total com BDI, responsável, prazo | Cards com badge de estado |
+| Valor total em elaboração | Soma de `total_com_bdi` de todas as versões ativas | KPI numérico destacado |
+| Distribuição por estado | Quantidade e valor de obras por estado | Gráfico de rosca |
+| Obras com alertas | Lista de obras com itens `requer_revisao = true` ou sem BDI configurado | Tabela de alertas |
+
+**Visão Obra** — foco na obra/versão ativa selecionada na barra de contexto:
+
+| Painel | Conteúdo | Tipo de gráfico |
+|--------|----------|----------------|
+| KPIs financeiros | Total sem BDI · Total com BDI · Delta vs. versão anterior (% e valor absoluto) | KPIs com variação colorida (verde/vermelho) |
+| Distribuição por grupo | Participação percentual de cada Grupo de serviço no total sem BDI | Gráfico de rosca interativo — clicar no grupo abre a planilha filtrada |
+| Curva S | Avanço financeiro planejado (cronograma) vs. realizado (medições), mês a mês | Gráfico de linha com duas séries + área sombreada entre elas |
+| Progresso físico | % acumulado executado por Grupo (último período de Medição) vs. planejado | Barras horizontais lado a lado |
+| Status do orçamento | Itens: total · sem composição · com `requer_revisao` · com `etiqueta_revisao` | Gráfico de barras empilhadas ou donut com legenda |
+| Banco de composições | Contagem de composições por origem (SINAPI · SICRO · Próprias) e quantas estão em uso na versão ativa | Gráfico de barras agrupadas |
+| Histórico de BDI | Evolução do `bdi_composto` ao longo das entradas em `historico_json` | Gráfico de linha |
+| Alertas ativos | BDI fora dos limites TCU · pacote expirado · cronograma incompleto · itens sem preço | Lista priorizada com link direto para a tela do problema |
+
+**Biblioteca de gráficos:** Recharts (já incluso no ecossistema React + TypeScript; não adiciona dependência externa significativa).
+
+**Atualização:** os dados do dashboard são carregados sob demanda (sem WebSocket ou polling automático). Botão "Atualizar" no canto superior direito recarrega os painéis manualmente.
 
 ---
 
@@ -365,10 +398,12 @@ Na v1 as permissões são por empresa — o Orçamentista acessa todas as obras 
 **Navegação:** Top bar com módulos principais + barra de contexto mostrando a obra ativa.
 
 ```
-[⬡ AVML] [Obras] [Orçamento▼] [BDI] [Cronograma] [Medição] [Relatórios] [Base de Comp.]
-─────────────────────────────────────────────────────────────────────────────────────────
+[⬡ AVML] [Dashboard] [Obras] [Orçamento▼] [BDI] [Cronograma] [Medição] [Relatórios] [Base de Comp.]
+──────────────────────────────────────────────────────────────────────────────────────────────────────
 OBRA ATIVA: Rodovia SP-150 — Ampliação km 42 ao km 67  ·  Proc. 2024/0089    [trocar ▾]
 ```
+
+**Dashboard** é o destino padrão após login. Não tem subtabs — a alternância Empresa/Obra é feita por toggle interno ao próprio painel.
 
 **Subtabs por módulo:**
 
