@@ -56,7 +56,7 @@ async def list_composicoes(
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Composicao).where(
-        or_(Composicao.empresa_id == None, Composicao.empresa_id == current_user.empresa_id)
+        or_(Composicao.empresa_id.is_(None), Composicao.empresa_id == current_user.empresa_id)
     )
     if origem:
         stmt = stmt.where(Composicao.origem == origem)

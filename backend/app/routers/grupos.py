@@ -26,7 +26,7 @@ async def _get_versao_ativa(versao_id: int, current_user: Usuario, db: AsyncSess
             Versao.id == versao_id,
             Obra.empresa_id == current_user.empresa_id,
             Versao.bloqueada == False,
-            Versao.deletada_em == None,
+            Versao.deletada_em.is_(None),
         )
     )
     v = result.scalar_one_or_none()
@@ -73,7 +73,7 @@ async def list_grupos(
 
     r_roots = await db.execute(
         select(Grupo)
-        .where(Grupo.versao_id == versao_id, Grupo.pai_id == None)
+        .where(Grupo.versao_id == versao_id, Grupo.pai_id.is_(None))
         .order_by(Grupo.ordem)
     )
     roots = r_roots.scalars().all()
