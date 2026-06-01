@@ -8,7 +8,10 @@ from app.database import get_db
 from app.models import Base
 from app.models.empresa import Empresa
 from app.models.usuario import Usuario
-from app.services.auth_service import hash_password
+from app.models.obra import Obra
+from app.models.versao import Versao
+from app.services.auth_service import hash_password, create_access_token
+from datetime import date
 
 _default_test_db = "postgresql+asyncpg://orcaavml:orcaavml@localhost:5432/orcaavml_test"
 TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", _default_test_db)
@@ -59,3 +62,35 @@ async def admin_user(db_session: AsyncSession, empresa: Empresa) -> Usuario:
     db_session.add(u)
     await db_session.flush()
     return u
+
+
+@pytest_asyncio.fixture
+async def auth_headers(admin_user: Usuario) -> dict:
+    token = create_access_token({
+        "sub": str(admin_user.id),
+        "papel": admin_user.papel,
+        "empresa_id": admin_user.empresa_id,
+    })
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def obra(db_session: AsyncSession, empresa: Empresa) -> Obra:
+    o = Obra(
+        empresa_id=empresa.id,
+        nome="Rodovia Teste SP-150",
+        tipo_obra="rodovia",
+        estado="em_elaboracao",
+        data_criacao=date.today(),
+    )
+    db_session.add(o)
+    await db_session.flush()
+    return o
+
+
+@pytest_asyncio.fixture
+async def versao_ativa(db_session: AsyncSession, obra: Obra, admin_user: Usuario) -> Versao:
+    v = Versao(obra_id=obra.id, numero=1, criada_por=admin_user.id)
+    db_session.add(v)
+    await db_session.flush()
+    return v
