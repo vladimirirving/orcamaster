@@ -63,6 +63,20 @@ async def _get_grupo_da_empresa(grupo_id: int, current_user: Usuario, db: AsyncS
     return g
 
 
+async def _get_item_da_empresa(item_id: int, current_user: Usuario, db: AsyncSession) -> Item:
+    result = await db.execute(
+        select(Item)
+        .join(Grupo, Item.grupo_id == Grupo.id)
+        .join(Versao, Grupo.versao_id == Versao.id)
+        .join(Obra, Versao.obra_id == Obra.id)
+        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    return item
+
+
 # ── Grupos ─────────────────────────────────────────────────────────────────
 
 @router.get("/versoes/{versao_id}/grupos", response_model=List[GrupoOut])
@@ -224,16 +238,7 @@ async def update_item(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Item)
-        .join(Grupo, Item.grupo_id == Grupo.id)
-        .join(Versao, Grupo.versao_id == Versao.id)
-        .join(Obra, Versao.obra_id == Obra.id)
-        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
-    )
-    item = result.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item não encontrado")
+    item = await _get_item_da_empresa(item_id, current_user, db)
 
     r_g = await db.execute(select(Grupo).where(Grupo.id == item.grupo_id))
     grupo = r_g.scalar_one()
@@ -256,16 +261,7 @@ async def delete_item(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Item)
-        .join(Grupo, Item.grupo_id == Grupo.id)
-        .join(Versao, Grupo.versao_id == Versao.id)
-        .join(Obra, Versao.obra_id == Obra.id)
-        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
-    )
-    item = result.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item não encontrado")
+    item = await _get_item_da_empresa(item_id, current_user, db)
 
     r_g = await db.execute(select(Grupo).where(Grupo.id == item.grupo_id))
     grupo = r_g.scalar_one()
@@ -289,16 +285,7 @@ async def vincular_composicao_ao_item(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Item)
-        .join(Grupo, Item.grupo_id == Grupo.id)
-        .join(Versao, Grupo.versao_id == Versao.id)
-        .join(Obra, Versao.obra_id == Obra.id)
-        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
-    )
-    item = result.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item não encontrado")
+    item = await _get_item_da_empresa(item_id, current_user, db)
 
     r_g = await db.execute(select(Grupo).where(Grupo.id == item.grupo_id))
     grupo = r_g.scalar_one()
@@ -335,16 +322,7 @@ async def atualizar_preco_item(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Item)
-        .join(Grupo, Item.grupo_id == Grupo.id)
-        .join(Versao, Grupo.versao_id == Versao.id)
-        .join(Obra, Versao.obra_id == Obra.id)
-        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
-    )
-    item = result.scalar_one_or_none()
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item não encontrado")
+    item = await _get_item_da_empresa(item_id, current_user, db)
 
     if item.composicao_id is None:
         raise HTTPException(
