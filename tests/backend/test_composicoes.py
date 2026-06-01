@@ -123,3 +123,201 @@ async def test_delete_composicao_sinapi_retorna_403(
 ):
     resp = await client.delete(f"/composicoes/{composicao_sinapi.id}", headers=auth_headers)
     assert resp.status_code == 403
+
+
+# ── Insumo price recalc ────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_insumo_recalcula_preco_composicao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, composicao_propria
+):
+    resp = await client.post(
+        f"/composicoes/{composicao_propria.id}/insumos",
+        json={
+            "tipo": "material",
+            "descricao": "Cimento CP-II",
+            "unidade": "kg",
+            "coeficiente": "5.000000",
+            "preco_unitario": "3.500000",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["tipo"] == "material"
+
+    await db_session.refresh(composicao_propria)
+    assert composicao_propria.preco_unitario == Decimal("17.500000")
+
+
+@pytest.mark.asyncio
+async def test_update_insumo_recalcula_preco_composicao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, composicao_propria
+):
+    insumo = Insumo(
+        composicao_id=composicao_propria.id, tipo="mao_obra",
+        descricao="Pedreiro", unidade="h",
+        coeficiente=Decimal("2.000000"), preco_unitario=Decimal("10.000000"),
+    )
+    db_session.add(insumo)
+    await db_session.commit()
+
+    resp = await client.patch(
+        f"/composicoes/{composicao_propria.id}/insumos/{insumo.id}",
+        json={"preco_unitario": "15.000000"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(composicao_propria)
+    assert composicao_propria.preco_unitario == Decimal("30.000000")
+
+
+@pytest.mark.asyncio
+async def test_delete_insumo_recalcula_preco_composicao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, composicao_propria
+):
+    i1 = Insumo(
+        composicao_id=composicao_propria.id, tipo="material",
+        descricao="Areia", unidade="m3",
+        coeficiente=Decimal("1.000000"), preco_unitario=Decimal("50.000000"),
+    )
+    i2 = Insumo(
+        composicao_id=composicao_propria.id, tipo="mao_obra",
+        descricao="Servente", unidade="h",
+        coeficiente=Decimal("2.000000"), preco_unitario=Decimal("10.000000"),
+    )
+    db_session.add_all([i1, i2])
+    await db_session.commit()
+
+    resp = await client.delete(
+        f"/composicoes/{composicao_propria.id}/insumos/{i1.id}",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 204
+
+    await db_session.refresh(composicao_propria)
+    assert composicao_propria.preco_unitario == Decimal("20.000000")
+
+
+@pytest.mark.asyncio
+async def test_create_insumo_em_sinapi_retorna_403(
+    client: AsyncClient, auth_headers: dict, composicao_sinapi
+):
+    resp = await client.post(
+        f"/composicoes/{composicao_sinapi.id}/insumos",
+        json={
+            "tipo": "material", "descricao": "X", "unidade": "un",
+            "coeficiente": "1.0", "preco_unitario": "1.0",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 403
+
+
+# ── Import CSV ─────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_import_sinapi_csv_cria_composicoes(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession
+):
+    csv_content = (
+        "codigo,descricao,unidade,preco_unitario\n"
+        "94966,ESCAVACAO MECANIZADA DE VALA,M3,45.23\n"
+        "97645,REATERRO MECANIZADO,M3,8.50\n"
+    )
+    resp = await client.post(
+        "/composicoes/importar",
+        data={"origem": "sinapi"},
+        files={"file": ("sinapi.csv", csv_content.encode(), "text/csv")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["criadas"] == 2
+    assert data["atualizadas"] == 0
+    assert data["itens_marcados"] == 0
+
+    r = await db_session.execute(
+        select(Composicao).where(Composicao.codigo == "94966", Composicao.origem == "sinapi")
+    )
+    comp = r.scalar_one_or_none()
+    assert comp is not None
+    assert comp.preco_unitario == Decimal("45.230000")
+
+
+@pytest.mark.asyncio
+async def test_import_sinapi_atualiza_preco_e_marca_requer_revisao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, versao_ativa, composicao_sinapi
+):
+    grupo = Grupo(versao_id=versao_ativa.id, nome="Terra", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0,
+        quantidade=Decimal("10.000000"), unidade="M3",
+        composicao_id=composicao_sinapi.id,
+        preco_unitario_sem_bdi=Decimal("45.230000"),
+        requer_revisao=False,
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    csv_content = (
+        "codigo,descricao,unidade,preco_unitario\n"
+        "94966,ESCAVACAO MECANIZADA DE VALA,M3,50.00\n"
+    )
+    resp = await client.post(
+        "/composicoes/importar",
+        data={"origem": "sinapi"},
+        files={"file": ("sinapi.csv", csv_content.encode(), "text/csv")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["criadas"] == 0
+    assert data["atualizadas"] == 1
+    assert data["itens_marcados"] == 1
+
+    await db_session.refresh(item)
+    assert item.requer_revisao is True
+    await db_session.refresh(composicao_sinapi)
+    assert composicao_sinapi.preco_unitario == Decimal("50.000000")
+
+
+@pytest.mark.asyncio
+async def test_import_sem_mudanca_de_preco_nao_marca_requer_revisao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, versao_ativa, composicao_sinapi
+):
+    grupo = Grupo(versao_id=versao_ativa.id, nome="G", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0,
+        quantidade=Decimal("10.000000"), unidade="M3",
+        composicao_id=composicao_sinapi.id,
+        preco_unitario_sem_bdi=Decimal("45.230000"),
+        requer_revisao=False,
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    csv_content = (
+        "codigo,descricao,unidade,preco_unitario\n"
+        "94966,ESCAVACAO MECANIZADA DE VALA,M3,45.23\n"
+    )
+    resp = await client.post(
+        "/composicoes/importar",
+        data={"origem": "sinapi"},
+        files={"file": ("sinapi.csv", csv_content.encode(), "text/csv")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["itens_marcados"] == 0
+
+    await db_session.refresh(item)
+    assert item.requer_revisao is False
