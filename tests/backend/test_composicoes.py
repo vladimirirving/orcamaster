@@ -321,3 +321,106 @@ async def test_import_sem_mudanca_de_preco_nao_marca_requer_revisao(
 
     await db_session.refresh(item)
     assert item.requer_revisao is False
+
+
+# ── Vincular composição ao item ────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_vincular_composicao_snapshots_preco(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa, composicao_sinapi
+):
+    grupo = Grupo(versao_id=versao_ativa.id, nome="Terra", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0,
+        quantidade=Decimal("10.000000"), unidade="M3",
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    resp = await client.patch(
+        f"/itens/{item.id}/composicao",
+        json={"composicao_id": composicao_sinapi.id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["composicao_id"] == composicao_sinapi.id
+    assert Decimal(data["preco_unitario_sem_bdi"]) == composicao_sinapi.preco_unitario
+    assert data["requer_revisao"] is False
+
+
+@pytest.mark.asyncio
+async def test_vincular_composicao_recalcula_totais_versao(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa, composicao_sinapi
+):
+    grupo = Grupo(versao_id=versao_ativa.id, nome="Drenagem", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0,
+        quantidade=Decimal("100.000000"), unidade="M3",
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    await client.patch(
+        f"/itens/{item.id}/composicao",
+        json={"composicao_id": composicao_sinapi.id},
+        headers=auth_headers,
+    )
+
+    r_v = await client.get(f"/obras/{obra.id}/versoes", headers=auth_headers)
+    versao_data = next(v for v in r_v.json() if v["id"] == versao_ativa.id)
+    # total_sem_bdi = 100 * 45.23 = 4523.00
+    assert Decimal(versao_data["total_sem_bdi"]) == Decimal("4523.00")
+
+
+# ── Atualizar preço ────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_atualizar_preco_limpa_requer_revisao_e_atualiza_snapshot(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa, composicao_sinapi
+):
+    grupo = Grupo(versao_id=versao_ativa.id, nome="G", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0,
+        quantidade=Decimal("5.000000"), unidade="M3",
+        composicao_id=composicao_sinapi.id,
+        preco_unitario_sem_bdi=Decimal("40.000000"),  # stale snapshot
+        requer_revisao=True,
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    resp = await client.post(f"/itens/{item.id}/atualizar-preco", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert Decimal(data["preco_unitario_sem_bdi"]) == composicao_sinapi.preco_unitario
+    assert data["requer_revisao"] is False
+
+
+@pytest.mark.asyncio
+async def test_atualizar_preco_sem_composicao_retorna_422(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, versao_ativa
+):
+    grupo = Grupo(versao_id=versao_ativa.id, nome="G", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0,
+        quantidade=Decimal("1.000000"), unidade="UN",
+        composicao_id=None,
+    )
+    db_session.add(item)
+    await db_session.commit()
+
+    resp = await client.post(f"/itens/{item.id}/atualizar-preco", headers=auth_headers)
+    assert resp.status_code == 422

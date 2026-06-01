@@ -1,6 +1,8 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, delete as sql_delete
+from sqlalchemy import or_, select, delete as sql_delete
+from pydantic import BaseModel
+from app.models.composicao import Composicao
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import set_committed_value
 from app.database import get_db
@@ -274,3 +276,94 @@ async def delete_item(
     await recalc_totais_versao(versao.id, db)
     await db.refresh(versao)
     await db.commit()
+
+
+class _ComposicaoLink(BaseModel):
+    composicao_id: int
+
+
+@router.patch("/itens/{item_id}/composicao", response_model=ItemOut)
+async def vincular_composicao_ao_item(
+    item_id: int,
+    body: _ComposicaoLink,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Item)
+        .join(Grupo, Item.grupo_id == Grupo.id)
+        .join(Versao, Grupo.versao_id == Versao.id)
+        .join(Obra, Versao.obra_id == Obra.id)
+        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+
+    r_g = await db.execute(select(Grupo).where(Grupo.id == item.grupo_id))
+    grupo = r_g.scalar_one()
+    versao = await _get_versao_ativa(grupo.versao_id, current_user, db)
+
+    r_c = await db.execute(
+        select(Composicao).where(
+            Composicao.id == body.composicao_id,
+            or_(
+                Composicao.empresa_id.is_(None),
+                Composicao.empresa_id == current_user.empresa_id,
+            ),
+        )
+    )
+    composicao = r_c.scalar_one_or_none()
+    if composicao is None:
+        raise HTTPException(status_code=404, detail="Composição não encontrada")
+
+    item.composicao_id = composicao.id
+    item.preco_unitario_sem_bdi = composicao.preco_unitario
+    item.requer_revisao = False
+
+    await db.flush()
+    await recalc_totais_versao(versao.id, db)
+    await db.refresh(versao)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+@router.post("/itens/{item_id}/atualizar-preco", response_model=ItemOut)
+async def atualizar_preco_item(
+    item_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Item)
+        .join(Grupo, Item.grupo_id == Grupo.id)
+        .join(Versao, Grupo.versao_id == Versao.id)
+        .join(Obra, Versao.obra_id == Obra.id)
+        .where(Item.id == item_id, Obra.empresa_id == current_user.empresa_id)
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+
+    if item.composicao_id is None:
+        raise HTTPException(
+            status_code=422, detail="Item não possui composição vinculada"
+        )
+
+    r_g = await db.execute(select(Grupo).where(Grupo.id == item.grupo_id))
+    grupo = r_g.scalar_one()
+    versao = await _get_versao_ativa(grupo.versao_id, current_user, db)
+
+    r_c = await db.execute(
+        select(Composicao.preco_unitario).where(Composicao.id == item.composicao_id)
+    )
+    item.preco_unitario_sem_bdi = r_c.scalar_one()
+    item.requer_revisao = False
+
+    await db.flush()
+    await recalc_totais_versao(versao.id, db)
+    await db.refresh(versao)
+    await db.commit()
+    await db.refresh(item)
+    return item
