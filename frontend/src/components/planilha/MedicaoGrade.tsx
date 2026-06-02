@@ -28,12 +28,23 @@ export default function MedicaoGrade({
   const localLinhasRef = useRef(localLinhas)
   localLinhasRef.current = localLinhas
 
+  const [localDisplay, setLocalDisplay] = useState<Record<string, string>>(
+    () => Object.fromEntries(
+      Object.entries(medicao.linhas_json).map(([k, v]) => [k, String(v)])
+    )
+  )
+
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     setLocalLinhas({ ...medicao.linhas_json })
+    setLocalDisplay(
+      Object.fromEntries(
+        Object.entries(medicao.linhas_json).map(([k, v]) => [k, String(v)])
+      )
+    )
   }, [medicao.id])
 
   useEffect(() => {
@@ -56,8 +67,11 @@ export default function MedicaoGrade({
   }
 
   function handleChange(itemId: number, value: string) {
-    const num = parseFloat(value) || 0
-    setLocalLinhas(prev => ({ ...prev, [String(itemId)]: num }))
+    setLocalDisplay(prev => ({ ...prev, [String(itemId)]: value }))
+    const num = parseFloat(value)
+    if (!isNaN(num)) {
+      setLocalLinhas(prev => ({ ...prev, [String(itemId)]: num }))
+    }
   }
 
   function handleBlur() {
@@ -183,14 +197,13 @@ export default function MedicaoGrade({
                         min={0}
                         max={100}
                         step={0.01}
-                        value={atualPct || ''}
-                        disabled={saving}
+                        value={localDisplay[String(item.item_id)] ?? ''}
                         data-row={rowIdx}
                         onChange={e => handleChange(item.item_id, e.target.value)}
                         onBlur={handleBlur}
                         onKeyDown={e => handleKeyDown(e, rowIdx)}
                         placeholder="0"
-                        className="w-full text-center bg-transparent text-gray-800 placeholder-gray-300 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 py-1 disabled:opacity-40"
+                        className="w-full text-center bg-transparent text-gray-800 placeholder-gray-300 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 py-1"
                       />
                     )}
                   </td>
