@@ -187,3 +187,15 @@ async def test_put_bdi_em_versao_bloqueada_retorna_409(
         headers=auth_headers,
     )
     assert resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_put_bdi_formula_invalida_retorna_422(
+    client: AsyncClient, auth_headers: dict, versao_ativa
+):
+    resp = await client.put(
+        f"/versoes/{versao_ativa.id}/bdi",
+        json={**BDI_BASE, "iss": "0.5000", "pis": "0.3000", "cofins": "0.2000"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422

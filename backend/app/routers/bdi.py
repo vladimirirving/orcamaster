@@ -67,10 +67,13 @@ async def upsert_bdi(
 ):
     versao = await _get_versao_ativa(versao_id, current_user, db)
 
-    bdi_composto = (
-        (1 + body.ac + body.sg + body.r + body.df + body.lucro)
-        / (1 - body.iss - body.pis - body.cofins)
-    ) - 1
+    denominador = 1 - body.iss - body.pis - body.cofins
+    if denominador <= 0:
+        raise HTTPException(
+            status_code=422,
+            detail="A soma de ISS + PIS + COFINS deve ser menor que 100%",
+        )
+    bdi_composto = ((1 + body.ac + body.sg + body.r + body.df + body.lucro) / denominador) - 1
 
     r = await db.execute(select(BDI).where(BDI.versao_id == versao_id))
     bdi = r.scalar_one_or_none()
