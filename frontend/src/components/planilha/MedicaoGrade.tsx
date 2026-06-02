@@ -110,6 +110,9 @@ export default function MedicaoGrade({
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+      {saving && (
+        <div className="text-xs text-gray-400 px-4 py-0.5 text-right shrink-0">Salvando...</div>
+      )}
       <div className="flex-1 overflow-auto mt-2">
         <table className="border-collapse text-xs w-full">
           <thead>
@@ -158,7 +161,6 @@ export default function MedicaoGrade({
                       <span className="truncate text-gray-800">
                         {item.descricao || <span className="text-gray-400">—</span>}
                       </span>
-                      {saving && <span className="text-gray-300 text-xs ml-1">●</span>}
                     </div>
                     <div className="text-gray-400 text-xs ml-5">{fmtBRL(item.total_sem_bdi)}</div>
                   </td>

@@ -33,6 +33,7 @@ export default function MedicaoTab({ versaoId, isReadOnly }: Props) {
         setMedicoes(meds)
         if (meds.length > 0) setSelectedId(meds[0].id)
       })
+      .catch(() => toast('Erro ao carregar medições', 'error'))
       .finally(() => setLoading(false))
   }, [versaoId])
 
