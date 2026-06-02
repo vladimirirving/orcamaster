@@ -1,0 +1,13 @@
+from app.models.base import Base  # noqa: F401
+from app.models.empresa import Empresa  # noqa: F401
+from app.models.usuario import Usuario  # noqa: F401
+from app.models.obra import Obra  # noqa: F401
+from app.models.versao import Versao  # noqa: F401
+from app.models.grupo import Grupo  # noqa: F401
+from app.models.composicao import Composicao  # noqa: F401
+from app.models.insumo import Insumo  # noqa: F401
+from app.models.item import Item  # noqa: F401
+from app.models.bdi import BDI  # noqa: F401
+from app.models.cronograma_linha import CronogramaLinha  # noqa: F401
+from app.models.medicao import Medicao  # noqa: F401
+from app.models.pacote_job import PacoteJob  # noqa: F401
