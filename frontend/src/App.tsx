@@ -1,14 +1,19 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
+import ObrasPage from '@/pages/ObrasPage'
+import ObraDetailPage from '@/pages/ObraDetailPage'
+import PlanilhaPage from '@/pages/PlanilhaPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import TopBar from '@/components/layout/TopBar'
+import Toaster from '@/components/layout/Toaster'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <TopBar />
       <main className="flex-1 overflow-auto">{children}</main>
+      <Toaster />
     </div>
   )
 }
@@ -23,6 +28,9 @@ export default function App() {
             <AppLayout>
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/obras" element={<ObrasPage />} />
+                <Route path="/obras/:id" element={<ObraDetailPage />} />
+                <Route path="/obras/:obraId/versoes/:versaoId" element={<PlanilhaPage />} />
               </Routes>
             </AppLayout>
           </ProtectedRoute>
