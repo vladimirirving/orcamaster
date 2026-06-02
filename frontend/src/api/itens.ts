@@ -9,7 +9,7 @@ export const updateItem = (itemId: number, data: Partial<{ ordem: number; quanti
   api.patch<Item>(`/itens/${itemId}`, data).then(r => r.data)
 export const deleteItem = (itemId: number) =>
   api.delete(`/itens/${itemId}`)
-export const vincularComposicao = (itemId: number, composicao_id: number) =>
-  api.patch<Item>(`/itens/${itemId}/composicao`, { composicao_id }).then(r => r.data)
+export const vincularComposicao = (itemId: number, composicaoId: number) =>
+  api.patch<Item>(`/itens/${itemId}/composicao`, { composicao_id: composicaoId }).then(r => r.data)
 export const atualizarPreco = (itemId: number) =>
   api.post<Item>(`/itens/${itemId}/atualizar-preco`).then(r => r.data)
