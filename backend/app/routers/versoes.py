@@ -139,6 +139,7 @@ async def duplicar_versao(
                     etiqueta_revisao=item_orig.etiqueta_revisao,
                     requer_revisao=item_orig.requer_revisao,
                 ))
+                # CronogramaLinha not copied — Plan 5 scope
 
         r_itens_raiz = await db.execute(
             select(Item).where(Item.grupo_id == grupo_orig.id).order_by(Item.ordem)
@@ -155,10 +156,12 @@ async def duplicar_versao(
                 etiqueta_revisao=item_orig.etiqueta_revisao,
                 requer_revisao=item_orig.requer_revisao,
             ))
+            # CronogramaLinha not copied — Plan 5 scope
 
     r_bdi = await db.execute(select(BDI).where(BDI.versao_id == versao_id))
     bdi_orig = r_bdi.scalar_one_or_none()
     if bdi_orig is not None:
+        # historico_json intentionally omitted — reserved for future audit (Plan 4a spec)
         db.add(BDI(
             versao_id=nova_versao.id,
             ac=bdi_orig.ac, sg=bdi_orig.sg, r=bdi_orig.r, df=bdi_orig.df,

@@ -159,3 +159,34 @@ async def test_duplicar_bdi_independente(
 
     await db_session.refresh(bdi_orig)
     assert bdi_orig.ac == Decimal("0.0500")
+
+
+@pytest.mark.asyncio
+async def test_duplicar_copia_itens_de_grupo_raiz(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, obra, versao_ativa
+):
+    raiz = Grupo(versao_id=versao_ativa.id, nome="Pavimentação", ordem=0)
+    db_session.add(raiz)
+    await db_session.flush()
+    item_raiz = Item(
+        grupo_id=raiz.id, ordem=0,
+        quantidade=Decimal("5.000000"), unidade="m2",
+        preco_unitario_sem_bdi=Decimal("80.000000"),
+    )
+    db_session.add(item_raiz)
+    await db_session.commit()
+
+    resp = await client.post(
+        f"/versoes/{versao_ativa.id}/duplicar",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    nova_id = resp.json()["id"]
+
+    r_itens = await db_session.execute(
+        select(func.count()).select_from(Item)
+        .join(Grupo, Item.grupo_id == Grupo.id)
+        .where(Grupo.versao_id == nova_id)
+    )
+    assert r_itens.scalar() == 1
