@@ -71,6 +71,8 @@ export default function MedicaoGrade({
     const num = parseFloat(value)
     if (!isNaN(num)) {
       setLocalLinhas(prev => ({ ...prev, [String(itemId)]: num }))
+    } else if (value === '') {
+      setLocalLinhas(prev => ({ ...prev, [String(itemId)]: 0 }))
     }
   }
 
