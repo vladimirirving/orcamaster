@@ -22,10 +22,10 @@ export default function PainelLateral({ isReadOnly }: { isReadOnly: boolean }) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4">
         {painel.tipo === 'grupo' && (
-          <FormGrupo grupo={painel.data} isReadOnly={isReadOnly} />
+          <FormGrupo key={painel.data.id} grupo={painel.data} isReadOnly={isReadOnly} />
         )}
         {painel.tipo === 'item' && (
-          <FormItem item={painel.data} isReadOnly={isReadOnly} />
+          <FormItem key={painel.data.id} item={painel.data} isReadOnly={isReadOnly} />
         )}
       </div>
     </div>

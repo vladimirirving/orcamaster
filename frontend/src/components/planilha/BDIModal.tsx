@@ -83,6 +83,7 @@ export default function BDIModal({ open, onOpenChange, versaoId, obraId }: Props
       ) as Record<BDIKey, string>
       const saved = await upsertBdi(versaoId, payload)
       setBdi(saved)
+      useOrcamento.setState({ itens: {} }) // invalidate item price cache — BDI recalculated server-side
       const versoes = await getVersoes(obraId)
       const v = versoes.find(x => x.id === versaoId)
       if (v) setVersao(v)
@@ -99,6 +100,7 @@ export default function BDIModal({ open, onOpenChange, versaoId, obraId }: Props
     try {
       await deleteBdi(versaoId)
       setBdi(null)
+      useOrcamento.setState({ itens: {} }) // invalidate item price cache — BDI zeroed server-side
       const versoes = await getVersoes(obraId)
       const v = versoes.find(x => x.id === versaoId)
       if (v) setVersao(v)
