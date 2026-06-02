@@ -72,15 +72,20 @@ export const useOrcamento = create<OrcamentoState>((set) => ({
       : s.painel,
   })),
 
-  removeGrupoDoStore: (grupoId) => set((s) => ({
-    grupos: removeGrupoFromTree(s.grupos, grupoId),
-    painel: s.painel?.tipo === 'grupo' && s.painel.data.id === grupoId ? null : s.painel,
-  })),
+  removeGrupoDoStore: (grupoId) => set((s) => {
+    const { [grupoId]: _removed, ...remainingItens } = s.itens
+    return {
+      grupos: removeGrupoFromTree(s.grupos, grupoId),
+      itens: remainingItens,
+      gruposAbertos: (() => { const next = new Set(s.gruposAbertos); next.delete(grupoId); return next })(),
+      painel: s.painel?.tipo === 'grupo' && s.painel.data.id === grupoId ? null : s.painel,
+    }
+  }),
 }))
 
 function updateGrupoInTree(grupos: Grupo[], updated: Grupo): Grupo[] {
   return grupos.map(g => {
-    if (g.id === updated.id) return { ...updated, filhos: g.filhos }
+    if (g.id === updated.id) return { ...updated, filhos: g.filhos } // preserve local filhos — server PATCH does not return children
     return { ...g, filhos: updateGrupoInTree(g.filhos, updated) }
   })
 }

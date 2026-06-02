@@ -8,11 +8,8 @@ describe('calcBdiComposto', () => {
   })
 
   it('complex formula', () => {
-    // ((1 + 0.04 + 0.01 + 0.02 + 0.01 + 0.08) / (1 - 0.03 - 0.0065 - 0.03)) - 1
     const result = calcBdiComposto(0.04, 0.01, 0.02, 0.01, 0.08, 0.03, 0.0065, 0.03)
-    // numerator = 1.16, denominator = 0.9335 → 1.24 - 1 ≈ 0.2429...
-    expect(result).toBeGreaterThan(0.24)
-    expect(result).toBeLessThan(0.26)
+    expect(result).toBeCloseTo(0.2426, 4)
   })
 
   it('throws when ISS+PIS+COFINS >= 1', () => {
