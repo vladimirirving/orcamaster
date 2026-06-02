@@ -77,3 +77,11 @@ export interface CronogramaData {
   cronograma_fim: string | null
   linhas: CronogramaLinhaData[]
 }
+
+export interface MedicaoData {
+  id: number
+  periodo_inicio: string   // "2025-06-01"
+  periodo_fim: string      // "2025-06-30"
+  linhas_json: Record<string, number>  // {"42": 35.0}
+  criada_por: number | null
+}
