@@ -37,11 +37,6 @@ function somaPercentual(dist: Record<string, number>): number {
 }
 
 export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnly, onLinhaUpdated }: Props) {
-  if (!data.cronograma_inicio || !data.cronograma_fim) {
-    return null
-  }
-  const meses = getMeses(data.cronograma_inicio, data.cronograma_fim)
-
   const [localDist, setLocalDist] = useState<Record<number, Record<string, number>>>(
     () => Object.fromEntries(data.linhas.map(l => [l.item_id, { ...l.distribuicao_json }]))
   )
@@ -56,6 +51,11 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
       Object.values(saveTimers.current).forEach(clearTimeout)
     }
   }, [])
+
+  if (!data.cronograma_inicio || !data.cronograma_fim) {
+    return null
+  }
+  const meses = getMeses(data.cronograma_inicio, data.cronograma_fim)
 
   function scheduleSave(itemId: number) {
     if (saveTimers.current[itemId]) clearTimeout(saveTimers.current[itemId])
