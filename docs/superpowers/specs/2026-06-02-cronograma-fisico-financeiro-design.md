@@ -76,7 +76,7 @@ Montado em `/versoes/{versao_id}/cronograma`. Todos os endpoints exigem autentic
 
 As linhas são ordenadas por `grupo.ordem`, `item.ordem`. Itens sem `CronogramaLinha` aparecem com `distribuicao_json: {}`.
 
-`descricao` = `item.composicao.descricao` se o item tiver composição vinculada; caso contrário, string vazia `""`. O model `Item` recebe um relacionamento `composicao` (lazy joined) para viabilizar isso sem query extra. O frontend exibe `"—"` para itens sem composição.
+`descricao` = `item.composicao.descricao` se o item tiver composição vinculada; caso contrário, string vazia `""`. O model `Item` recebe um relacionamento `composicao` (lazy select padrão); o router do cronograma usa `selectinload(Item.composicao)` para carregamento eficiente sem N+1. O frontend exibe `"—"` para itens sem composição.
 
 ### 4.4 Regras de negócio
 
