@@ -4,6 +4,7 @@ import { updateItem, deleteItem, atualizarPreco } from '@/api/itens'
 import { useOrcamento } from '@/stores/orcamento'
 import { toast } from '@/hooks/useToast'
 import type { Item } from '@/types'
+import BuscaComposicao from './BuscaComposicao'
 
 interface Props {
   item: Item
@@ -110,8 +111,9 @@ export default function FormItem({ item, isReadOnly }: Props) {
         </div>
       </div>
 
-      {/* BuscaComposicao will be inserted here in Task 7 */}
-      <div id="busca-composicao-slot" />
+      {!isReadOnly && (
+        <BuscaComposicao item={item} />
+      )}
 
       {!isReadOnly && (
         <div className="flex gap-2 pt-2">

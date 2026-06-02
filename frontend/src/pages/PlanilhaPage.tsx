@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getVersoes } from '@/api/obras'
 import { getGrupos } from '@/api/grupos'
@@ -7,12 +7,14 @@ import { useOrcamento } from '@/stores/orcamento'
 import { fmtBRL, fmtPct } from '@/lib/utils'
 import PlanilhaTabela from '@/components/planilha/PlanilhaTabela'
 import PainelLateral from '@/components/planilha/PainelLateral'
+import BDIModal from '@/components/planilha/BDIModal'
 
 export default function PlanilhaPage() {
   const { obraId, versaoId } = useParams<{ obraId: string; versaoId: string }>()
   const numObraId = Number(obraId)
   const numVersaoId = Number(versaoId)
   const { versao, bdi, setVersao, setBdi, setGrupos } = useOrcamento()
+  const [bdiModalOpen, setBdiModalOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -52,8 +54,11 @@ export default function PlanilhaPage() {
         )}
 
         <div className="ml-auto flex items-center gap-3">
-          <button className="text-sm text-gray-600 hover:text-blue-600 border border-gray-200 px-3 py-1 rounded-lg">
-            BDI: {bdi ? fmtPct(bdi.bdi_composto) : 'Sem BDI'}
+          <button
+            onClick={() => setBdiModalOpen(true)}
+            className="text-sm text-gray-600 hover:text-blue-600 border border-gray-200 px-3 py-1 rounded-lg"
+          >
+            BDI: {bdi ? fmtPct(bdi.bdi_composto) : 'Configurar BDI'}
           </button>
         </div>
       </div>
@@ -69,6 +74,12 @@ export default function PlanilhaPage() {
         <span className="text-gray-500">Total S/BDI: <span className="font-semibold text-gray-900">{fmtBRL(versao?.total_sem_bdi)}</span></span>
         <span className="text-gray-500">Total C/BDI: <span className="font-semibold text-blue-700">{fmtBRL(versao?.total_com_bdi)}</span></span>
       </div>
+      <BDIModal
+        open={bdiModalOpen}
+        onOpenChange={setBdiModalOpen}
+        versaoId={numVersaoId}
+        obraId={numObraId}
+      />
     </div>
   )
 }
