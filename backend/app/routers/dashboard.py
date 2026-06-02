@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.cronograma_linha import CronogramaLinha
 from app.models.grupo import Grupo
 from app.models.item import Item
 from app.models.medicao import Medicao
@@ -34,6 +33,8 @@ def _get_meses(inicio: str, fim: str) -> list[str]:
 def _calc(versao: Versao, itens: list, medicoes: list) -> Optional[dict]:
     """Returns dict with keys planejado_pct_hoje, realizado_pct, desvio, status, curva_s.
     Returns None when data is insufficient (sem_dados)."""
+    if versao.total_sem_bdi is None:
+        return None
     total_versao = float(versao.total_sem_bdi)
     if total_versao == 0 or not versao.cronograma_inicio or not versao.cronograma_fim:
         return None
@@ -108,9 +109,9 @@ async def _get_versao_ativa_da_obra(obra_id: int, db: AsyncSession) -> Optional[
             Versao.obra_id == obra_id,
             Versao.bloqueada == False,
             Versao.deletada_em.is_(None),
-        )
+        ).order_by(Versao.id.desc()).limit(1)
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def _get_itens(versao_id: int, db: AsyncSession) -> list:

@@ -303,3 +303,60 @@ async def test_curva_s_empresa_b_recebe_404(
     # Empresa B tries to access empresa A's obra dashboard → 404
     resp = await client.get(f"/obras/{versao_ativa.obra_id}/dashboard", headers=headers_b)
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_curva_s_dois_medicoes_sequenciais(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, versao_ativa,
+):
+    # Medicao.linhas_json stores cumulative % per item.
+    # Jan medição: 30% accumulated. Feb medição: 55% accumulated.
+    # The curva_s should show: Jan=30, Feb=55 (each is the running total at that point).
+    grupo = Grupo(versao_id=versao_ativa.id, nome="G2", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+
+    item1 = Item(
+        grupo_id=grupo.id, ordem=0, unidade="m³",
+        quantidade=Decimal("10"), preco_unitario_sem_bdi=Decimal("100"),
+    )
+    db_session.add(item1)
+    await db_session.flush()
+    await db_session.refresh(item1)
+
+    from app.models.cronograma_linha import CronogramaLinha
+    cl1 = CronogramaLinha(item_id=item1.id, distribuicao_json={"2020-01": 40, "2020-02": 60})
+    db_session.add(cl1)
+
+    versao_ativa.cronograma_inicio = "2020-01"
+    versao_ativa.cronograma_fim = "2020-02"
+    versao_ativa.total_sem_bdi = Decimal("1000")
+
+    from calendar import monthrange
+    jan_fim = monthrange(2020, 1)[1]
+    feb_fim = monthrange(2020, 2)[1]
+    med_jan = Medicao(
+        versao_id=versao_ativa.id,
+        periodo_inicio=date(2020, 1, 1),
+        periodo_fim=date(2020, 1, jan_fim),
+        linhas_json={str(item1.id): 30.0},
+    )
+    med_feb = Medicao(
+        versao_id=versao_ativa.id,
+        periodo_inicio=date(2020, 2, 1),
+        periodo_fim=date(2020, 2, feb_fim),
+        linhas_json={str(item1.id): 55.0},
+    )
+    db_session.add_all([med_jan, med_feb])
+    await db_session.commit()
+
+    resp = await client.get(f"/obras/{versao_ativa.obra_id}/dashboard", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    jan = next(p for p in data["curva_s"] if p["mes"] == "2020-01")
+    fev = next(p for p in data["curva_s"] if p["mes"] == "2020-02")
+    assert jan["realizado_acum"] == pytest.approx(30.0, abs=0.1)
+    assert fev["realizado_acum"] == pytest.approx(55.0, abs=0.1)
+    # realizado_pct is from latest medição
+    assert data["realizado_pct"] == pytest.approx(55.0, abs=0.1)

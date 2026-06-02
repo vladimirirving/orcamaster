@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
 
 
@@ -10,7 +10,7 @@ class DashboardResumoItem(BaseModel):
     planejado_pct_hoje: Optional[float]
     realizado_pct: Optional[float]
     desvio: Optional[float]
-    status: str  # "adiantado" | "no_prazo" | "atrasado" | "sem_dados"
+    status: Literal["adiantado", "no_prazo", "atrasado", "sem_dados"]
 
 
 class CurvaSPonto(BaseModel):
@@ -25,5 +25,5 @@ class ObraDashboardData(BaseModel):
     planejado_pct_hoje: Optional[float]
     realizado_pct: Optional[float]
     desvio: Optional[float]
-    status: str
+    status: Literal["adiantado", "no_prazo", "atrasado", "sem_dados"]
     curva_s: list[CurvaSPonto]
