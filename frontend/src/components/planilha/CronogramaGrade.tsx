@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CheckCircle, AlertTriangle } from 'lucide-react'
 import { patchCronogramaLinha } from '@/api/cronograma'
 import { fmtBRL } from '@/lib/utils'
+import { toast } from '@/hooks/useToast'
 import type { CronogramaData } from '@/types'
 
 interface Props {
@@ -36,7 +37,10 @@ function somaPercentual(dist: Record<string, number>): number {
 }
 
 export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnly, onLinhaUpdated }: Props) {
-  const meses = getMeses(data.cronograma_inicio!, data.cronograma_fim!)
+  if (!data.cronograma_inicio || !data.cronograma_fim) {
+    return null
+  }
+  const meses = getMeses(data.cronograma_inicio, data.cronograma_fim)
 
   const [localDist, setLocalDist] = useState<Record<number, Record<string, number>>>(
     () => Object.fromEntries(data.linhas.map(l => [l.item_id, { ...l.distribuicao_json }]))
@@ -47,6 +51,12 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
   const [saving, setSaving] = useState<Record<number, boolean>>({})
   const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimers.current).forEach(clearTimeout)
+    }
+  }, [])
+
   function scheduleSave(itemId: number) {
     if (saveTimers.current[itemId]) clearTimeout(saveTimers.current[itemId])
     saveTimers.current[itemId] = setTimeout(async () => {
@@ -56,7 +66,7 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
         await patchCronogramaLinha(versaoId, itemId, dist)
         onLinhaUpdated(itemId, dist)
       } catch {
-        // silent fail — user sees no change in UI
+        toast('Erro ao salvar linha do cronograma', 'error')
       } finally {
         setSaving(s => ({ ...s, [itemId]: false }))
       }
@@ -101,11 +111,16 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
   }
 
   // Footer calculations
+  const somasPorItem = Object.fromEntries(
+    data.linhas.map(l => [l.item_id, somaPercentual(localDist[l.item_id] ?? {})])
+  )
+
   const totalMensal: Record<string, number> = {}
   for (const mes of meses) {
     totalMensal[mes] = data.linhas.reduce((sum, linha) => {
       const pct = localDist[linha.item_id]?.[mes] ?? 0
-      return sum + parseFloat(linha.total_sem_bdi) * pct / 100
+      const itemTotal = parseFloat(linha.total_sem_bdi) || 0
+      return sum + itemTotal * pct / 100
     }, 0)
   }
 
@@ -119,8 +134,7 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
   }
 
   const incompletos = data.linhas.filter(l => {
-    const soma = somaPercentual(localDist[l.item_id] ?? {})
-    return Math.abs(soma - 100) > 0.01
+    return Math.abs(somasPorItem[l.item_id] - 100) > 0.01
   }).length
 
   return (
@@ -152,7 +166,7 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
           <tbody>
             {data.linhas.map((linha, rowIdx) => {
               const dist = localDist[linha.item_id] ?? {}
-              const soma = somaPercentual(dist)
+              const soma = somasPorItem[linha.item_id]
               const valida = Math.abs(soma - 100) <= 0.01
               const isSaving = saving[linha.item_id]
 
