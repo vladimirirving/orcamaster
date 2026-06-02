@@ -18,6 +18,8 @@ export interface Versao {
   deletada_em: string | null
   total_sem_bdi: string
   total_com_bdi: string
+  cronograma_inicio: string | null
+  cronograma_fim: string | null
 }
 
 export interface Grupo {
@@ -59,4 +61,19 @@ export interface Composicao {
   descricao: string
   unidade: string
   preco_unitario: string
+}
+
+export interface CronogramaLinhaData {
+  item_id: number
+  descricao: string
+  unidade: string
+  quantidade: string
+  total_sem_bdi: string
+  distribuicao_json: Record<string, number>
+}
+
+export interface CronogramaData {
+  cronograma_inicio: string | null
+  cronograma_fim: string | null
+  linhas: CronogramaLinhaData[]
 }
