@@ -256,3 +256,50 @@ async def test_isolamento_empresa_b(
     assert resp.status_code == 200
     ids = [d["obra_id"] for d in resp.json()]
     assert versao_ativa.obra_id not in ids
+
+
+@pytest.mark.asyncio
+async def test_curva_s_sem_medicao_retorna_sem_dados(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, versao_ativa,
+):
+    # Cronograma configurado mas sem medições → endpoint obra retorna sem_dados
+    await _setup(
+        db_session, versao_ativa,
+        "2020-01", "2020-02",
+        {"2020-01": 40, "2020-02": 60}, {"2020-01": 40, "2020-02": 60},
+        [],  # sem medições
+    )
+    resp = await client.get(f"/obras/{versao_ativa.obra_id}/dashboard", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "sem_dados"
+    assert resp.json()["curva_s"] == []
+
+
+@pytest.mark.asyncio
+async def test_curva_s_empresa_b_recebe_404(
+    client: AsyncClient,
+    db_session: AsyncSession, versao_ativa,
+):
+    from app.models.empresa import Empresa
+    from app.models.usuario import Usuario
+    from app.services.auth_service import hash_password, create_access_token
+
+    empresa_b = Empresa(nome="Empresa B 2", cnpj="22.222.222/0001-22")
+    db_session.add(empresa_b)
+    await db_session.flush()
+    user_b = Usuario(
+        empresa_id=empresa_b.id, nome="User B2", email="userb2@teste.com",
+        senha_hash=hash_password("senha123"), papel="admin",
+    )
+    db_session.add(user_b)
+    await db_session.commit()
+
+    token_b = create_access_token({
+        "sub": str(user_b.id), "papel": user_b.papel, "empresa_id": user_b.empresa_id,
+    })
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # Empresa B tries to access empresa A's obra dashboard → 404
+    resp = await client.get(f"/obras/{versao_ativa.obra_id}/dashboard", headers=headers_b)
+    assert resp.status_code == 404
