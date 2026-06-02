@@ -87,7 +87,10 @@ async def create_medicao(
 
     last = await db.execute(
         select(Medicao)
-        .where(Medicao.versao_id == versao_id)
+        .where(
+            Medicao.versao_id == versao_id,
+            Medicao.periodo_inicio < periodo_inicio,
+        )
         .order_by(Medicao.periodo_inicio.desc())
         .limit(1)
     )

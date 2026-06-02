@@ -1,37 +1,9 @@
 import pytest
 from datetime import date
-from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.grupo import Grupo
-from app.models.item import Item
 from app.models.medicao import Medicao
-from app.models.composicao import Composicao
-
-
-async def _setup_versao_com_itens(db_session, versao_ativa):
-    comp = Composicao(
-        empresa_id=None, origem="sinapi", codigo="99999",
-        descricao="TERRAPLANAGEM MECANIZADA", unidade="M3",
-        preco_unitario=Decimal("45.000000"), requer_revisao=False,
-    )
-    db_session.add(comp)
-    await db_session.flush()
-
-    grupo = Grupo(versao_id=versao_ativa.id, nome="Terraplenagem", ordem=0)
-    db_session.add(grupo)
-    await db_session.flush()
-
-    item = Item(
-        grupo_id=grupo.id, ordem=0,
-        composicao_id=comp.id,
-        quantidade=Decimal("500.000000"), unidade="M3",
-        preco_unitario_sem_bdi=Decimal("45.000000"),
-    )
-    db_session.add(item)
-    await db_session.commit()
-    return item
 
 
 @pytest.mark.asyncio
