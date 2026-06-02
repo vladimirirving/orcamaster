@@ -16,3 +16,5 @@ class VersaoOut(BaseModel):
     total_sem_bdi: Decimal
     total_com_bdi: Decimal
     deletada_em: Optional[datetime] = None
+    cronograma_inicio: Optional[str] = None
+    cronograma_fim: Optional[str] = None

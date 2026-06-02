@@ -28,3 +28,6 @@ class Item(Base):
     cronograma_linha: Mapped[Optional["CronogramaLinha"]] = relationship(
         back_populates="item", uselist=False, cascade="all, delete-orphan"
     )
+    composicao: Mapped[Optional["Composicao"]] = relationship(
+        "Composicao", foreign_keys=[composicao_id]
+    )

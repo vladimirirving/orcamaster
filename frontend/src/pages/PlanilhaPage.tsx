@@ -8,6 +8,10 @@ import { fmtBRL, fmtPct } from '@/lib/utils'
 import PlanilhaTabela from '@/components/planilha/PlanilhaTabela'
 import PainelLateral from '@/components/planilha/PainelLateral'
 import BDIModal from '@/components/planilha/BDIModal'
+import CronogramaTab from '@/components/planilha/CronogramaTab'
+import MedicaoTab from '@/components/planilha/MedicaoTab'
+
+type Tab = 'planilha' | 'cronograma' | 'medicao'
 
 export default function PlanilhaPage() {
   const { obraId, versaoId } = useParams<{ obraId: string; versaoId: string }>()
@@ -15,6 +19,7 @@ export default function PlanilhaPage() {
   const numVersaoId = Number(versaoId)
   const { versao, bdi, setVersao, setBdi, setGrupos } = useOrcamento()
   const [bdiModalOpen, setBdiModalOpen] = useState(false)
+  const [tab, setTab] = useState<Tab>('planilha')
 
   useEffect(() => {
     async function load() {
@@ -63,11 +68,40 @@ export default function PlanilhaPage() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex flex-1 overflow-hidden p-4 gap-4">
-        <PlanilhaTabela versaoId={numVersaoId} isReadOnly={isReadOnly} />
-        <PainelLateral isReadOnly={isReadOnly} />
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 bg-white shrink-0 px-4">
+        {(['planilha', 'cronograma', 'medicao'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === t
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            {t === 'planilha' ? 'Planilha' : t === 'cronograma' ? 'Cronograma' : 'Medição'}
+          </button>
+        ))}
       </div>
+
+      {/* Body */}
+      {tab === 'planilha' && (
+        <div className="flex flex-1 overflow-hidden p-4 gap-4">
+          <PlanilhaTabela versaoId={numVersaoId} isReadOnly={isReadOnly} />
+          <PainelLateral isReadOnly={isReadOnly} />
+        </div>
+      )}
+      {tab === 'cronograma' && (
+        <div className="flex flex-1 overflow-hidden">
+          <CronogramaTab versaoId={numVersaoId} isReadOnly={isReadOnly} />
+        </div>
+      )}
+      {tab === 'medicao' && (
+        <div className="flex flex-1 overflow-hidden">
+          <MedicaoTab versaoId={numVersaoId} isReadOnly={isReadOnly} />
+        </div>
+      )}
 
       {/* Footer totals */}
       <div className="flex items-center justify-end gap-6 px-6 py-2 bg-white border-t border-gray-200 text-sm shrink-0">

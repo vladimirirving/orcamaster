@@ -27,3 +27,4 @@ pacotes/
 .idea/
 .vscode/
 *.swp
+.superpowers/
