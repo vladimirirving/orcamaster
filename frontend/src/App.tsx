@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
@@ -8,7 +9,7 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import TopBar from '@/components/layout/TopBar'
 import Toaster from '@/components/layout/Toaster'
 
-function AppLayout({ children }: { children: React.ReactNode }) {
+function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <TopBar />

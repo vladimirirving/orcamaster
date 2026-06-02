@@ -35,6 +35,7 @@ export default function ObrasPage() {
       setObras(prev => [...prev, obra])
       setOpen(false)
       setNome('')
+      setTipo('rodovia')
       toast('Obra criada com sucesso')
     } catch {
       toast('Erro ao criar obra', 'error')
@@ -113,7 +114,7 @@ export default function ObrasPage() {
             className="text-left bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all"
           >
             <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">{obra.nome}</h3>
-            <p className="text-sm text-gray-500 capitalize">{obra.tipo_obra.replace('_', ' ')}</p>
+            <p className="text-sm text-gray-500 capitalize">{obra.tipo_obra.replace(/_/g, ' ')}</p>
             {obra.municipio && obra.uf && (
               <p className="text-xs text-gray-400 mt-1">{obra.municipio} / {obra.uf}</p>
             )}
@@ -121,7 +122,7 @@ export default function ObrasPage() {
               ${obra.estado === 'em_elaboracao' ? 'bg-blue-100 text-blue-700' :
                 obra.estado === 'concluido' ? 'bg-green-100 text-green-700' :
                 'bg-gray-100 text-gray-600'}`}>
-              {obra.estado.replace('_', ' ')}
+              {obra.estado.replace(/_/g, ' ')}
             </span>
           </button>
         ))}
