@@ -6,6 +6,7 @@ import { getBdi } from '@/api/bdi'
 import { useOrcamento } from '@/stores/orcamento'
 import { fmtBRL, fmtPct } from '@/lib/utils'
 import PlanilhaTabela from '@/components/planilha/PlanilhaTabela'
+import PainelLateral from '@/components/planilha/PainelLateral'
 
 export default function PlanilhaPage() {
   const { obraId, versaoId } = useParams<{ obraId: string; versaoId: string }>()
@@ -60,6 +61,7 @@ export default function PlanilhaPage() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden p-4 gap-4">
         <PlanilhaTabela versaoId={numVersaoId} isReadOnly={isReadOnly} />
+        <PainelLateral isReadOnly={isReadOnly} />
       </div>
 
       {/* Footer totals */}
