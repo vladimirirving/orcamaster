@@ -134,7 +134,8 @@ export default function CronogramaGrade({ versaoId, data, totalSemBdi, isReadOnl
   }
 
   const incompletos = data.linhas.filter(l => {
-    return Math.abs(somasPorItem[l.item_id] - 100) > 0.01
+    const soma = somasPorItem[l.item_id]
+    return soma > 0 && Math.abs(soma - 100) > 0.01
   }).length
 
   return (
