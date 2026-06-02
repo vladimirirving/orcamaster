@@ -234,7 +234,7 @@ Painel fixo à direita (320px), fechável com ✕.
 - Validação frontend: ISS + PIS + COFINS < 100% (bloqueia submit)
 - Botão Salvar: `PUT /versoes/:id/bdi`
 - Botão "Remover BDI" (se BDI existe): `DELETE /versoes/:id/bdi` com confirmação inline
-- Ao fechar: recarrega `versao` para atualizar totais no footer
+- Ao fechar: re-chama `GET /obras/:obraId/versoes` e atualiza `versao` na store para refletir `total_com_bdi` recalculado no footer
 
 ---
 
