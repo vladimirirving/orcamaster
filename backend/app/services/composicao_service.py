@@ -95,7 +95,8 @@ async def import_composicoes_csv(
             comp = existing[codigo]
             if Decimal(str(comp.preco_unitario)) != novo_preco:
                 comp.preco_unitario = novo_preco
-                changed_ids.append(comp.id)
+                if comp.id is not None:
+                    changed_ids.append(comp.id)
             comp.descricao = descricao
             comp.unidade = unidade
             if data_ref:

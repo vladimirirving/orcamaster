@@ -424,3 +424,48 @@ async def test_atualizar_preco_sem_composicao_retorna_422(
 
     resp = await client.post(f"/itens/{item.id}/atualizar-preco", headers=auth_headers)
     assert resp.status_code == 422
+
+
+# ── Isolamento cross-empresa ───────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_empresa_b_nao_ve_composicao_propria_de_empresa_a(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, composicao_propria
+):
+    from app.models.empresa import Empresa
+    from app.models.usuario import Usuario
+    from app.services.auth_service import hash_password, create_access_token
+
+    empresa_b = Empresa(nome="Empresa B", cnpj="11.111.111/0001-11")
+    db_session.add(empresa_b)
+    await db_session.flush()
+
+    user_b = Usuario(
+        empresa_id=empresa_b.id,
+        nome="User B",
+        email="userb@teste.com",
+        senha_hash=hash_password("senha123"),
+        papel="admin",
+    )
+    db_session.add(user_b)
+    await db_session.commit()
+
+    token_b = create_access_token({
+        "sub": str(user_b.id),
+        "papel": user_b.papel,
+        "empresa_id": user_b.empresa_id,
+    })
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # composicao_propria belongs to empresa A — empresa B should get 403 on direct access
+    resp = await client.get(
+        f"/composicoes/{composicao_propria.id}", headers=headers_b
+    )
+    assert resp.status_code == 403
+
+    # empresa B's list should NOT include empresa A's propria composicao
+    resp_list = await client.get("/composicoes", headers=headers_b)
+    assert resp_list.status_code == 200
+    ids = [c["id"] for c in resp_list.json()]
+    assert composicao_propria.id not in ids

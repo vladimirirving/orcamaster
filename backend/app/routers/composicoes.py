@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import set_committed_value
 from app.database import get_db
@@ -145,6 +145,15 @@ async def delete_composicao(
     db: AsyncSession = Depends(get_db),
 ):
     comp = await _get_composicao_propria(composicao_id, current_user, db)
+    from app.models.item import Item as ItemModel
+    r_itens = await db.execute(
+        select(func.count()).select_from(ItemModel).where(ItemModel.composicao_id == composicao_id)
+    )
+    if r_itens.scalar() > 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Composição possui itens vinculados e não pode ser excluída",
+        )
     await db.delete(comp)
     await db.commit()
 
