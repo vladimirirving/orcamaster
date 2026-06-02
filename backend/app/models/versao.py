@@ -19,6 +19,8 @@ class Versao(Base):
     total_sem_bdi: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
     total_com_bdi: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=Decimal("0"))
     deletada_em: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    cronograma_inicio: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
+    cronograma_fim: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
 
     obra: Mapped["Obra"] = relationship(back_populates="versoes")
     grupos: Mapped[list["Grupo"]] = relationship(back_populates="versao")
