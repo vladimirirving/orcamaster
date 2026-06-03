@@ -1,8 +1,10 @@
+import json
 import pytest
 from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from unittest.mock import patch
 
 from app.models.composicao import Composicao
 from app.models.empresa import Empresa
@@ -169,3 +171,55 @@ async def test_importar_versao_bloqueada(
         json={"grupos": []}, headers=auth_headers,
     )
     assert resp.status_code == 409
+
+
+# ── Streaming endpoint tests ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_gerar_proposta_stream(
+    client: AsyncClient, auth_headers: dict, versao_ativa: Versao,
+):
+    proposta_data = {"grupos": [{"nome": "Terraplenagem", "itens": []}]}
+
+    async def fake_stream(descricao, versao_id, empresa_id, db):
+        yield 'data: {"type": "progress", "msg": "Analisando..."}\n\n'
+        yield f'data: {{"type": "proposta", "data": {json.dumps(proposta_data)}}}\n\n'
+
+    with patch("app.routers.agente.gerar_proposta_stream", new=fake_stream):
+        resp = await client.post(
+            f"/versoes/{versao_ativa.id}/agente/gerar",
+            json={"descricao": "Rodovia de 10km"},
+            headers=auth_headers,
+        )
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+    assert '"type": "progress"' in resp.text
+    assert '"type": "proposta"' in resp.text
+
+
+@pytest.mark.asyncio
+async def test_gerar_proposta_versao_nao_encontrada(
+    client: AsyncClient,
+    db_session: AsyncSession, empresa: Empresa, versao_ativa: Versao,
+):
+    empresa_b = Empresa(nome="Empresa B", cnpj="11.111.111/0001-11")
+    db_session.add(empresa_b)
+    await db_session.flush()
+    usuario_b = Usuario(
+        empresa_id=empresa_b.id, nome="User B", email="b_ag@test.com",
+        senha_hash=hash_password("x"), papel="admin",
+    )
+    db_session.add(usuario_b)
+    await db_session.flush()
+    token_b = create_access_token({
+        "sub": str(usuario_b.id), "papel": "admin", "empresa_id": empresa_b.id,
+    })
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    resp = await client.post(
+        f"/versoes/{versao_ativa.id}/agente/gerar",
+        json={"descricao": "Rodovia"},
+        headers=headers_b,
+    )
+    assert resp.status_code == 404
