@@ -129,7 +129,7 @@ async def gerar_cronograma_bytes(versao_id: int, db: AsyncSession) -> Optional[b
         .join(Grupo, Item.grupo_id == Grupo.id)
         .where(Grupo.versao_id == versao_id)
         .options(selectinload(CronogramaLinha.item).selectinload(Item.composicao))
-        .order_by(Item.ordem)
+        .order_by(Grupo.ordem, Item.ordem)
     )
     linhas = linhas_result.scalars().all()
 
@@ -164,7 +164,8 @@ async def gerar_cronograma_bytes(versao_id: int, db: AsyncSession) -> Optional[b
             row.append(val)
         ws.append(row)
 
-    totals_row = ["", "TOTAL MENSAL", "", "", round(sum(monthly_totals.values()), 2)]
+    item_total_sum = round(sum(float(linha.item.total) for linha in linhas), 2)
+    totals_row = ["", "TOTAL MENSAL", "", "", item_total_sum]
     totals_row += [round(monthly_totals[mes], 2) for mes in meses]
     ws.append(totals_row)
     for cell in ws[ws.max_row]:
