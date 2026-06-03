@@ -8,13 +8,13 @@ interface Props {
   versaoId: number
 }
 
-const FAIXA_ROW: Record<string, string> = {
+const FAIXA_ROW: Record<'A' | 'B' | 'C', string> = {
   A: 'bg-green-50',
   B: 'bg-yellow-50',
   C: 'bg-gray-50',
 }
 
-const FAIXA_BADGE: Record<string, string> = {
+const FAIXA_BADGE: Record<'A' | 'B' | 'C', string> = {
   A: 'bg-green-100 text-green-700',
   B: 'bg-yellow-100 text-yellow-700',
   C: 'bg-gray-100 text-gray-500',

@@ -74,6 +74,8 @@ export default function ObraDetailPage() {
   if (loading) return <div className="p-6 text-gray-500">Carregando...</div>
   if (!obra) return <div className="p-6 text-red-500">Obra não encontrada</div>
 
+  const versaoAtiva = versoes.find(v => !v.bloqueada && !v.deletada_em)
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <nav className="text-sm text-gray-500 mb-4">
@@ -192,12 +194,11 @@ export default function ObraDetailPage() {
 
       {tab === 'dashboard' && <ObraDashboard obraId={obraId} />}
 
-      {tab === 'curva-abc' && (() => {
-        const versaoAtiva = versoes.find(v => !v.bloqueada && !v.deletada_em)
-        return versaoAtiva
+      {tab === 'curva-abc' && (
+        versaoAtiva
           ? <CurvaAbc versaoId={versaoAtiva.id} />
           : <div className="p-6 text-center text-gray-400 text-sm py-12">Nenhuma versão ativa para esta obra</div>
-      })()}
+      )}
     </div>
   )
 }

@@ -9,12 +9,9 @@ export async function downloadCurvaAbcExcel(versaoId: number): Promise<void> {
     responseType: 'blob',
   })
   const url = URL.createObjectURL(resp.data)
-  try {
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `curva-abc-v${versaoId}.xlsx`
-    a.click()
-  } finally {
-    URL.revokeObjectURL(url)
-  }
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `curva-abc-v${versaoId}.xlsx`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 100)
 }
