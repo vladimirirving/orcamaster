@@ -7,6 +7,7 @@ import { toast } from '@/hooks/useToast'
 import { fmtBRL } from '@/lib/utils'
 import type { Obra, Versao } from '@/types'
 import ObraDashboard from '@/components/obra/ObraDashboard'
+import CurvaAbc from '@/components/obra/CurvaAbc'
 
 export default function ObraDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,7 +17,7 @@ export default function ObraDetailPage() {
   const [versoes, setVersoes] = useState<Versao[]>([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
-  const [tab, setTab] = useState<'versoes' | 'dashboard'>('versoes')
+  const [tab, setTab] = useState<'versoes' | 'dashboard' | 'curva-abc'>('versoes')
 
   async function reload() {
     const [o, vs] = await Promise.all([getObra(obraId), getVersoes(obraId)])
@@ -94,7 +95,7 @@ export default function ObraDetailPage() {
       </div>
 
       <div className="flex gap-0 border-b border-gray-200 mb-6 mt-4">
-        {(['versoes', 'dashboard'] as const).map(t => (
+        {(['versoes', 'dashboard', 'curva-abc'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -104,7 +105,7 @@ export default function ObraDetailPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t === 'versoes' ? 'Versões' : 'Dashboard'}
+            {t === 'versoes' ? 'Versões' : t === 'dashboard' ? 'Dashboard' : 'Curva ABC'}
           </button>
         ))}
       </div>
@@ -190,6 +191,13 @@ export default function ObraDetailPage() {
       )}
 
       {tab === 'dashboard' && <ObraDashboard obraId={obraId} />}
+
+      {tab === 'curva-abc' && (() => {
+        const versaoAtiva = versoes.find(v => !v.bloqueada && !v.deletada_em)
+        return versaoAtiva
+          ? <CurvaAbc versaoId={versaoAtiva.id} />
+          : <div className="p-6 text-center text-gray-400 text-sm py-12">Nenhuma versão ativa para esta obra</div>
+      })()}
     </div>
   )
 }
