@@ -71,20 +71,26 @@ async def importar(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_versao_ativa(versao_id, current_user, db)
+    if not body.grupos:
+        raise HTTPException(status_code=422, detail="Nenhum grupo fornecido")
 
     all_ids = {item.composicao_id for grupo in body.grupos for item in grupo.itens}
-    comp_map: dict[int, Composicao] = {}
-    for comp_id in all_ids:
+    if all_ids:
         result = await db.execute(
             select(Composicao).where(
-                Composicao.id == comp_id,
+                Composicao.id.in_(all_ids),
                 or_(Composicao.empresa_id.is_(None), Composicao.empresa_id == current_user.empresa_id),
             )
         )
-        comp = result.scalar_one_or_none()
-        if comp is None:
-            raise HTTPException(status_code=422, detail=f"Composição {comp_id} não encontrada")
-        comp_map[comp_id] = comp
+        comp_map: dict[int, Composicao] = {c.id: c for c in result.scalars().all()}
+        missing = all_ids - comp_map.keys()
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Composições não encontradas: {sorted(missing)}",
+            )
+    else:
+        comp_map = {}
 
     r_max = await db.execute(
         select(func.coalesce(func.max(Grupo.ordem), -1)).where(Grupo.versao_id == versao_id)
