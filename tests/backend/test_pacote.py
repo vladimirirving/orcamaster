@@ -228,4 +228,4 @@ async def test_processar_pacote_erro(
 
     await db_session.refresh(job)
     assert job.status == "erro"
-    assert "disk full" in job.erro_mensagem
+    assert job.erro_mensagem == "Erro interno ao gerar o pacote. Contate o suporte."

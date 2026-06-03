@@ -1,8 +1,12 @@
+import logging
+import os
 import zipfile
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill
@@ -213,9 +217,16 @@ async def processar_pacote(job_id: int, versao_id: int, _db_factory=None) -> Non
                 zf.writestr("cronograma.xlsx", cronograma_bytes)
 
         pacotes_dir = Path(settings.pacotes_dir)
-        pacotes_dir.mkdir(parents=True, exist_ok=True)
+        pacotes_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         filename = f"pacote-v{versao_id}-{job_id}.zip"
-        (pacotes_dir / filename).write_bytes(zip_buf.getvalue())
+        file_path = pacotes_dir / filename
+        fd = os.open(str(file_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(zip_buf.getvalue())
+        except Exception:
+            os.close(fd)
+            raise
 
         async with factory() as db:
             result = await db.execute(select(PacoteJob).where(PacoteJob.id == job_id))
@@ -225,10 +236,11 @@ async def processar_pacote(job_id: int, versao_id: int, _db_factory=None) -> Non
             job.gerado_em = datetime.utcnow()
             await db.commit()
 
-    except Exception as e:
+    except Exception:
+        logger.exception("processar_pacote job_id=%s versao_id=%s failed", job_id, versao_id)
         async with factory() as db:
             result = await db.execute(select(PacoteJob).where(PacoteJob.id == job_id))
             job = result.scalar_one()
             job.status = "erro"
-            job.erro_mensagem = str(e)[:1000]
+            job.erro_mensagem = "Erro interno ao gerar o pacote. Contate o suporte."
             await db.commit()
