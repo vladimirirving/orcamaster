@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 2cm; }
+  body { font-family: Liberation Sans, Arial, sans-serif; font-size: 10pt; color: #111; }
+  h1 { font-size: 13pt; margin: 0 0 2pt; }
+  h2 { font-size: 11pt; margin: 14pt 0 4pt; border-bottom: 1px solid #ccc; padding-bottom: 2pt; }
+  .header { text-align: center; margin-bottom: 16pt; }
+  .header .cnpj { font-size: 9pt; color: #555; }
+  .meta { display: flex; gap: 40pt; margin-bottom: 10pt; }
+  .meta div { flex: 1; }
+  .label { font-size: 8pt; color: #777; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .value { font-size: 10pt; }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 10pt; }
+  th { background: #f0f0f0; text-align: left; padding: 4pt 6pt; border: 0.5pt solid #bbb; font-weight: bold; }
+  td { padding: 3pt 6pt; border: 0.5pt solid #ccc; vertical-align: top; }
+  .group-row td { background: #f8f8f8; font-weight: bold; }
+  .total-row td { background: #e8e8e8; font-weight: bold; }
+  .num { text-align: right; }
+  .validity { margin-bottom: 10pt; font-style: italic; }
+  .declarations { white-space: pre-wrap; font-size: 9pt; color: #333;
+                  border: 0.5pt solid #ddd; padding: 8pt; margin-bottom: 16pt; }
+  .signature { margin-top: 30pt; border-top: 0.5pt dotted #888;
+               padding-top: 8pt; font-size: 9pt; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>{{ empresa.nome }}</h1>
+  <div class="cnpj">CNPJ: {{ empresa.cnpj }}</div>
+</div>
+
+<h2>Dados da Proposta</h2>
+<div class="meta">
+  <div>
+    <div class="label">Representante Legal</div>
+    <div class="value">{{ empresa.representante_nome or '—' }}</div>
+    <div class="value" style="font-size:9pt;color:#555;">
+      CPF: {{ empresa.representante_cpf or '—' }}
+    </div>
+  </div>
+  <div>
+    <div class="label">Data da Proposta</div>
+    <div class="value">{{ proposta.data_proposta.strftime('%d/%m/%Y') }}</div>
+  </div>
+</div>
+
+<h2>Dados da Obra</h2>
+<div class="meta">
+  <div>
+    <div class="label">Obra</div>
+    <div class="value">{{ obra.nome }}</div>
+  </div>
+  <div>
+    <div class="label">Processo</div>
+    <div class="value">{{ obra.numero_processo or '—' }}</div>
+  </div>
+</div>
+<div class="meta">
+  <div>
+    <div class="label">Cliente / Contratante</div>
+    <div class="value">{{ obra.cliente or '—' }}</div>
+  </div>
+  <div>
+    <div class="label">Local</div>
+    <div class="value">
+      {% if obra.municipio %}{{ obra.municipio }}/{{ obra.uf or '' }}{% else %}—{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="validity">
+  Esta proposta é válida por <strong>{{ proposta.validade_dias }} dias</strong>
+  a partir de {{ proposta.data_proposta.strftime('%d/%m/%Y') }}.
+</div>
+
+<h2>Planilha de Preços</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:38%">Descrição</th>
+      <th style="width:8%">Un</th>
+      <th class="num" style="width:12%">Qtd</th>
+      <th class="num" style="width:16%">Preço Unit. (R$)</th>
+      <th class="num" style="width:16%">Total (R$)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for grupo in grupos %}
+    <tr class="group-row">
+      <td colspan="5">{{ grupo.nome }}</td>
+    </tr>
+    {% for item in grupo.itens %}
+    <tr>
+      <td>{{ item.composicao.descricao if item.composicao else '—' }}</td>
+      <td>{{ item.unidade }}</td>
+      <td class="num">{{ "%.2f"|format(item.quantidade|float) }}</td>
+      <td class="num">
+        {% if item.preco_unitario_sem_bdi %}
+          {{ "%.2f"|format(item.preco_unitario_sem_bdi|float) }}
+        {% else %}—{% endif %}
+      </td>
+      <td class="num">{{ "%.2f"|format(item.total|float) }}</td>
+    </tr>
+    {% endfor %}
+    {% endfor %}
+    <tr class="total-row">
+      <td colspan="4" style="text-align:right">Subtotal sem BDI</td>
+      <td class="num">{{ "%.2f"|format(versao.total_sem_bdi|float) }}</td>
+    </tr>
+    {% if bdi %}
+    <tr>
+      <td colspan="4" style="text-align:right">
+        BDI ({{ "%.2f"|format(bdi.bdi_composto|float * 100) }}%)
+      </td>
+      <td class="num">
+        {{ "%.2f"|format(versao.total_com_bdi|float - versao.total_sem_bdi|float) }}
+      </td>
+    </tr>
+    {% endif %}
+    <tr class="total-row">
+      <td colspan="4" style="text-align:right"><strong>TOTAL GERAL</strong></td>
+      <td class="num"><strong>{{ "%.2f"|format(versao.total_com_bdi|float) }}</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+{% if proposta.declaracoes %}
+<h2>Declarações</h2>
+<div class="declarations">{{ proposta.declaracoes }}</div>
+{% endif %}
+
+<div class="signature">
+  <p>{{ obra.municipio or '___________' }},
+     {{ proposta.data_proposta.strftime('%d de %B de %Y') }}</p>
+  <br><br>
+  <p>__________________________________________________</p>
+  <p><strong>{{ empresa.representante_nome or '______________________________' }}</strong></p>
+  {% if empresa.representante_cpf %}<p>CPF: {{ empresa.representante_cpf }}</p>{% endif %}
+  <p>Responsável Legal</p>
+</div>
+
+</body>
+</html>

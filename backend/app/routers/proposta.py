@@ -1,4 +1,6 @@
+import io
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -9,6 +11,7 @@ from app.models.proposta_config import PropostaConfig
 from app.models.usuario import Usuario
 from app.models.versao import Versao
 from app.schemas.proposta import PropostaConfigIn, PropostaConfigOut
+from app.services.proposta_pdf import gerar_pdf_bytes
 
 router = APIRouter(tags=["proposta"])
 
@@ -74,3 +77,18 @@ async def upsert_proposta(
     await db.commit()
     await db.refresh(pc)
     return pc
+
+
+@router.get("/versoes/{versao_id}/proposta/export")
+async def export_proposta(
+    versao_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_versao(versao_id, current_user, db)
+    pdf_bytes = await gerar_pdf_bytes(versao_id, db)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="proposta-v{versao_id}.pdf"'},
+    )

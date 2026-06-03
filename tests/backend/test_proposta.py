@@ -1,9 +1,12 @@
 import pytest
 import pytest_asyncio
 from datetime import date
+from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.empresa import Empresa
+from app.models.grupo import Grupo
+from app.models.item import Item
 from app.models.usuario import Usuario
 from app.models.obra import Obra
 from app.models.versao import Versao
@@ -152,3 +155,52 @@ async def test_isolamento_empresa_b(
         f"/versoes/{versao_ativa.id}/proposta", headers=headers_b,
         json={"validade_dias": 60, "data_proposta": "2026-07-01"},
     )).status_code == 404
+
+
+async def _setup_proposta_dados(
+    db: AsyncSession, empresa: Empresa, versao_ativa: Versao
+) -> None:
+    empresa.representante_nome = "João da Silva"
+    empresa.representante_cpf = "123.456.789-00"
+    grupo = Grupo(versao_id=versao_ativa.id, nome="Terraplanagem", ordem=0)
+    db.add(grupo)
+    await db.flush()
+    item = Item(
+        grupo_id=grupo.id, ordem=0, unidade="m³",
+        quantidade=Decimal("100"), preco_unitario_sem_bdi=Decimal("50"),
+    )
+    db.add(item)
+    versao_ativa.total_sem_bdi = Decimal("5000")
+    versao_ativa.total_com_bdi = Decimal("5750")
+    await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_export_pdf_not_configured(
+    client: AsyncClient, auth_headers: dict, versao_ativa: Versao
+):
+    resp = await client.get(
+        f"/versoes/{versao_ativa.id}/proposta/export", headers=auth_headers
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_export_pdf_ok(
+    client: AsyncClient, auth_headers: dict,
+    db_session: AsyncSession, empresa: Empresa, versao_ativa: Versao
+):
+    await _setup_proposta_dados(db_session, empresa, versao_ativa)
+
+    await client.put(
+        f"/versoes/{versao_ativa.id}/proposta",
+        headers=auth_headers,
+        json={"validade_dias": 60, "data_proposta": "2026-07-01", "declaracoes": "Declaro."},
+    )
+
+    resp = await client.get(
+        f"/versoes/{versao_ativa.id}/proposta/export", headers=auth_headers
+    )
+    assert resp.status_code == 200
+    assert "application/pdf" in resp.headers["content-type"]
+    assert len(resp.content) > 0
