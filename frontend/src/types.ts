@@ -159,3 +159,20 @@ export interface PacoteJob {
   erro_mensagem: string | null
   gerado_em: string | null
 }
+
+export interface PropostaItem {
+  composicao_id: number
+  descricao: string
+  codigo: string
+  unidade: string
+  quantidade: number
+}
+
+export interface PropostaGrupo {
+  nome: string
+  itens: PropostaItem[]
+}
+
+export interface PropostaSugerida {
+  grupos: PropostaGrupo[]
+}
