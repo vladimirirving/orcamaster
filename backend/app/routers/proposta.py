@@ -72,7 +72,8 @@ async def upsert_proposta(
     else:
         pc.validade_dias = body.validade_dias
         pc.data_proposta = body.data_proposta
-        pc.declaracoes = body.declaracoes
+        if 'declaracoes' in body.model_fields_set:
+            pc.declaracoes = body.declaracoes
 
     await db.commit()
     await db.refresh(pc)

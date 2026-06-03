@@ -7,8 +7,6 @@ import type { EmpresaConfig } from '@/types'
 
 export default function EmpresaSettingsPage() {
   const { papel } = useAuth()
-  if (papel !== 'admin') return <Navigate to="/obras" replace />
-
   const [empresa, setEmpresa] = useState<EmpresaConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -17,6 +15,7 @@ export default function EmpresaSettingsPage() {
   const [declaracoesPadrao, setDeclaracoesPadrao] = useState('')
 
   useEffect(() => {
+    if (papel !== 'admin') return
     getEmpresaConfig()
       .then(e => {
         setEmpresa(e)
@@ -26,7 +25,9 @@ export default function EmpresaSettingsPage() {
       })
       .catch(() => toast('Erro ao carregar configurações', 'error'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [papel])
+
+  if (papel !== 'admin') return <Navigate to="/obras" replace />
 
   async function handleSave() {
     setSaving(true)
