@@ -36,7 +36,7 @@ async def _get_versao(versao_id: int, current_user: Usuario, db: AsyncSession) -
     return versao
 
 
-async def _get_itens(versao_id: int, db: AsyncSession) -> list:
+async def _get_itens(versao_id: int, db: AsyncSession) -> list[Item]:
     result = await db.execute(
         select(Item)
         .join(Grupo, Item.grupo_id == Grupo.id)
@@ -48,7 +48,9 @@ async def _get_itens(versao_id: int, db: AsyncSession) -> list:
 
 
 def _calcular_abc(versao: Versao, itens: list) -> CurvaAbcData:
-    total_versao = float(versao.total_sem_bdi or 0)
+    from decimal import Decimal, ROUND_HALF_UP
+
+    total_versao = Decimal(str(versao.total_sem_bdi or 0))
 
     if total_versao == 0:
         return CurvaAbcData(total_versao=str(versao.total_sem_bdi or "0.00"), itens=[])
@@ -56,11 +58,11 @@ def _calcular_abc(versao: Versao, itens: list) -> CurvaAbcData:
     itens_com_valor = [i for i in itens if float(i.total) > 0]
 
     resultado = []
-    acumulado = 0.0
+    acumulado = Decimal("0")
     for rank, item in enumerate(itens_com_valor, start=1):
-        total_item = float(item.total)
-        participacao = round(total_item / total_versao * 100, 2)
-        acumulado = round(acumulado + participacao, 2)
+        total_item = Decimal(str(item.total))
+        participacao = (total_item / total_versao * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        acumulado = (acumulado + participacao).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         faixa = "A" if acumulado <= 80 else "B" if acumulado <= 95 else "C"
         resultado.append(CurvaAbcItem(
             rank=rank,
@@ -69,8 +71,8 @@ def _calcular_abc(versao: Versao, itens: list) -> CurvaAbcData:
             unidade=item.unidade,
             quantidade=str(item.quantidade),
             total=str(round(item.total, 2)),
-            participacao_pct=participacao,
-            acumulado_pct=acumulado,
+            participacao_pct=float(participacao),
+            acumulado_pct=float(acumulado),
             faixa=faixa,
         ))
 
@@ -80,7 +82,7 @@ def _calcular_abc(versao: Versao, itens: list) -> CurvaAbcData:
     )
 
 
-def _build_xlsx(data: CurvaAbcData, versao_id: int) -> bytes:
+def _build_xlsx(data: CurvaAbcData) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Curva ABC"
@@ -111,9 +113,11 @@ def _build_xlsx(data: CurvaAbcData, versao_id: int) -> bytes:
         for col in range(1, 10):
             ws.cell(row=ws.max_row, column=col).fill = fill
 
-    total_row = ws.max_row + 1
-    ws.cell(row=total_row, column=1, value="Total").font = Font(bold=True)
-    ws.cell(row=total_row, column=6, value=float(data.total_versao)).font = Font(bold=True)
+    # Linha de total (only if there are items)
+    if data.itens:
+        total_row = ws.max_row + 1
+        ws.cell(row=total_row, column=1, value="Total").font = Font(bold=True)
+        ws.cell(row=total_row, column=6, value=float(data.total_versao)).font = Font(bold=True)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -141,7 +145,7 @@ async def export_curva_abc(
     versao = await _get_versao(versao_id, current_user, db)
     itens = await _get_itens(versao_id, db)
     data = _calcular_abc(versao, itens)
-    xlsx_bytes = _build_xlsx(data, versao_id)
+    xlsx_bytes = _build_xlsx(data)
 
     return StreamingResponse(
         io.BytesIO(xlsx_bytes),

@@ -123,6 +123,7 @@ async def test_curva_abc_vazio(
     assert resp.status_code == 200
     data = resp.json()
     assert data["itens"] == []
+    assert data["total_versao"] == "0.00"
 
 
 @pytest.mark.asyncio
@@ -140,6 +141,16 @@ async def test_curva_abc_export_xlsx(
     )
     assert resp.status_code == 200
     assert "spreadsheetml" in resp.headers.get("content-type", "")
+
+    import io as io_module
+    import openpyxl
+    wb = openpyxl.load_workbook(io_module.BytesIO(resp.content))
+    ws = wb.active
+    # Header + 2 data rows + 1 total row = 4 rows
+    assert ws.max_row == 4
+    # Total row: col 1 = "Total", col 6 = 1000.0 (800 + 200)
+    assert ws.cell(row=4, column=1).value == "Total"
+    assert ws.cell(row=4, column=6).value == pytest.approx(1000.0)
 
 
 @pytest.mark.asyncio
