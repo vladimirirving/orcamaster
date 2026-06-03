@@ -214,6 +214,9 @@ async def gerar_proposta_stream(
 ) -> AsyncGenerator[str, None]:
     """Gerador assíncrono que emite eventos SSE enquanto o agente executa tool calls."""
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    if not settings.anthropic_api_key:
+        yield _sse("error", "Chave da API do agente não configurada")
+        return
     messages = [{"role": "user", "content": descricao}]
 
     yield _sse("progress", "Analisando descrição da obra…")
@@ -239,7 +242,7 @@ async def gerar_proposta_stream(
                 yield _sse("proposta", proposta)
                 return
 
-            if response.stop_reason == "tool_use":
+            elif response.stop_reason == "tool_use":
                 messages.append({"role": "assistant", "content": response.content})
                 tool_results = []
                 for block in response.content:
@@ -253,6 +256,10 @@ async def gerar_proposta_stream(
                         "content": json.dumps(result, ensure_ascii=False),
                     })
                 messages.append({"role": "user", "content": tool_results})
+
+            else:
+                yield _sse("error", f"Resposta inesperada do agente: {response.stop_reason}")
+                return
 
         yield _sse("error", "Limite de iterações atingido sem resposta final")
 
