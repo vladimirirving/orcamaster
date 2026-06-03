@@ -14,3 +14,9 @@ export function fmtPct(val: string | null | undefined): string {
   if (!val) return '—'
   return (parseFloat(val) * 100).toFixed(2) + '%'
 }
+
+export function fmtMesLabel(mes: string): string {
+  const [y, m] = mes.split('-')
+  const labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+  return `${labels[parseInt(m) - 1]}/${y.slice(2)}`
+}

@@ -85,3 +85,30 @@ export interface MedicaoData {
   linhas_json: Record<string, number>  // {"42": 35.0}
   criada_por: number | null
 }
+
+export interface DashboardResumoItem {
+  obra_id: number
+  obra_nome: string
+  versao_id: number | null
+  total_sem_bdi: string | null
+  planejado_pct_hoje: number | null
+  realizado_pct: number | null
+  desvio: number | null
+  status: 'adiantado' | 'no_prazo' | 'atrasado' | 'sem_dados'
+}
+
+export interface CurvaSPonto {
+  mes: string
+  planejado_acum: number
+  realizado_acum: number | null
+}
+
+export interface ObraDashboardData {
+  versao_id: number | null
+  total_sem_bdi: string | null
+  planejado_pct_hoje: number | null
+  realizado_pct: number | null
+  desvio: number | null
+  status: string
+  curva_s: CurvaSPonto[]
+}

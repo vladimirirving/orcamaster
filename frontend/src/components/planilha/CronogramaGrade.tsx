@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { CheckCircle, AlertTriangle } from 'lucide-react'
 import { patchCronogramaLinha } from '@/api/cronograma'
-import { fmtBRL } from '@/lib/utils'
+import { fmtBRL, fmtMesLabel } from '@/lib/utils'
 import { toast } from '@/hooks/useToast'
 import type { CronogramaData } from '@/types'
 
@@ -24,12 +24,6 @@ function getMeses(inicio: string, fim: string): string[] {
     if (m > 12) { m = 1; y++ }
   }
   return meses
-}
-
-function fmtMesLabel(mes: string): string {
-  const [y, m] = mes.split('-')
-  const labels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-  return `${labels[parseInt(m) - 1]}/${y.slice(2)}`
 }
 
 function somaPercentual(dist: Record<string, number>): number {
