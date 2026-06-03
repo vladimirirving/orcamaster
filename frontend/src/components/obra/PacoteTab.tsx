@@ -7,7 +7,7 @@ interface Props {
   versaoId: number
 }
 
-const TERMINAL = new Set(['pronto', 'erro', 'expirado'])
+const TERMINAL = new Set<PacoteJob['status']>(['pronto', 'erro', 'expirado'])
 
 export default function PacoteTab({ versaoId }: Props) {
   const [job, setJob] = useState<PacoteJob | null>(null)
@@ -26,29 +26,37 @@ export default function PacoteTab({ versaoId }: Props) {
   function startPolling(currentJob: PacoteJob) {
     if (TERMINAL.has(currentJob.status)) return
     clearPolling()
+    let polling = false
     intervalRef.current = setInterval(async () => {
+      if (polling) return
+      polling = true
       try {
         const updated = await getPacote(versaoId)
         setJob(updated)
         if (TERMINAL.has(updated.status)) clearPolling()
       } catch {
         clearPolling()
+      } finally {
+        polling = false
       }
     }, 3000)
   }
 
   useEffect(() => {
+    let active = true
     setLoading(true)
     getPacote(versaoId)
       .then(j => {
+        if (!active) return
         setJob(j)
         startPolling(j)
       })
       .catch(e => {
+        if (!active) return
         if (e?.response?.status !== 404) toast('Erro ao carregar status', 'error')
       })
-      .finally(() => setLoading(false))
-    return clearPolling
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false; clearPolling() }
   }, [versaoId])
 
   async function handleGerar() {
@@ -141,16 +149,17 @@ export default function PacoteTab({ versaoId }: Props) {
   )
 }
 
+const STATUS_STYLES: Record<PacoteJob['status'], string> = {
+  pendente:    'bg-gray-100 text-gray-600',
+  processando: 'bg-blue-100 text-blue-700',
+  pronto:      'bg-green-100 text-green-700',
+  erro:        'bg-red-100 text-red-700',
+  expirado:    'bg-yellow-100 text-yellow-700',
+}
+
 function StatusBadge({ status }: { status: PacoteJob['status'] }) {
-  const styles: Record<PacoteJob['status'], string> = {
-    pendente:    'bg-gray-100 text-gray-600',
-    processando: 'bg-blue-100 text-blue-700',
-    pronto:      'bg-green-100 text-green-700',
-    erro:        'bg-red-100 text-red-700',
-    expirado:    'bg-yellow-100 text-yellow-700',
-  }
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[status]}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[status]}`}>
       {status}
     </span>
   )
