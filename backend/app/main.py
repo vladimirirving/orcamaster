@@ -8,6 +8,7 @@ from app.routers import curva_abc
 from app.routers import empresa
 from app.routers import proposta
 from app.routers import pacote
+from app.routers import agente
 from app.scheduler import start_scheduler, stop_scheduler
 
 
@@ -42,3 +43,4 @@ app.include_router(curva_abc.router)
 app.include_router(empresa.router)
 app.include_router(proposta.router)
 app.include_router(pacote.router)
+app.include_router(agente.router)
