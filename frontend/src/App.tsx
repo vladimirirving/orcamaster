@@ -8,6 +8,7 @@ import PlanilhaPage from '@/pages/PlanilhaPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import TopBar from '@/components/layout/TopBar'
 import Toaster from '@/components/layout/Toaster'
+import EmpresaSettingsPage from '@/pages/EmpresaSettingsPage'
 
 function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -32,6 +33,7 @@ export default function App() {
                 <Route path="/obras" element={<ObrasPage />} />
                 <Route path="/obras/:id" element={<ObraDetailPage />} />
                 <Route path="/obras/:obraId/versoes/:versaoId" element={<PlanilhaPage />} />
+                <Route path="/configuracoes" element={<EmpresaSettingsPage />} />
               </Routes>
             </AppLayout>
           </ProtectedRoute>

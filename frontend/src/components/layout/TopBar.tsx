@@ -32,6 +32,11 @@ export default function TopBar() {
         ))}
       </nav>
       <div className="ml-auto flex items-center gap-3 text-sm">
+        {papel === 'admin' && (
+          <Link to="/configuracoes" className="text-gray-400 hover:text-white transition-colors">
+            Configurações
+          </Link>
+        )}
         <span className="text-gray-400 capitalize">{papel}</span>
         <button onClick={handleLogout} className="hover:text-red-400 transition-colors">Sair</button>
       </div>
