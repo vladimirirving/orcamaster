@@ -6,6 +6,7 @@ from app.routers import medicoes
 from app.routers import dashboard
 from app.routers import curva_abc
 from app.routers import empresa
+from app.routers import proposta
 from app.scheduler import start_scheduler, stop_scheduler
 
 
@@ -38,3 +39,4 @@ app.include_router(medicoes.router)
 app.include_router(dashboard.router)
 app.include_router(curva_abc.router)
 app.include_router(empresa.router)
+app.include_router(proposta.router)
