@@ -148,3 +148,14 @@ export interface EmpresaConfig {
   representante_cpf: string | null
   declaracoes_padrao: string | null
 }
+
+export interface PacoteJob {
+  id: number
+  versao_id: number
+  status: 'pendente' | 'processando' | 'pronto' | 'erro' | 'expirado'
+  criado_em: string
+  atualizado_em: string
+  url_download: string | null
+  erro_mensagem: string | null
+  gerado_em: string | null
+}
