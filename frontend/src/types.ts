@@ -112,3 +112,20 @@ export interface ObraDashboardData {
   status: string
   curva_s: CurvaSPonto[]
 }
+
+export interface CurvaAbcItem {
+  rank: number
+  grupo_nome: string
+  descricao: string
+  unidade: string
+  quantidade: string
+  total: string
+  participacao_pct: number
+  acumulado_pct: number
+  faixa: 'A' | 'B' | 'C'
+}
+
+export interface CurvaAbcData {
+  total_versao: string
+  itens: CurvaAbcItem[]
+}
