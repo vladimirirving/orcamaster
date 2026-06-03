@@ -129,3 +129,22 @@ export interface CurvaAbcData {
   total_versao: string
   itens: CurvaAbcItem[]
 }
+
+export interface PropostaConfig {
+  id: number
+  versao_id: number
+  validade_dias: number
+  data_proposta: string   // YYYY-MM-DD
+  declaracoes: string | null
+  criado_em: string
+  atualizado_em: string
+}
+
+export interface EmpresaConfig {
+  id: number
+  nome: string
+  cnpj: string
+  representante_nome: string | null
+  representante_cpf: string | null
+  declaracoes_padrao: string | null
+}
