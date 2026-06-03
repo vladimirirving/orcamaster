@@ -5,6 +5,7 @@ from app.routers import auth, usuarios, obras, versoes, grupos, composicoes, bdi
 from app.routers import medicoes
 from app.routers import dashboard
 from app.routers import curva_abc
+from app.routers import empresa
 from app.scheduler import start_scheduler, stop_scheduler
 
 
@@ -36,3 +37,4 @@ app.include_router(cronograma.router)
 app.include_router(medicoes.router)
 app.include_router(dashboard.router)
 app.include_router(curva_abc.router)
+app.include_router(empresa.router)
