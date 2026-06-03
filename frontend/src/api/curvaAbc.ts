@@ -5,13 +5,16 @@ export const getCurvaAbc = (versaoId: number): Promise<CurvaAbcData> =>
   api.get<CurvaAbcData>(`/versoes/${versaoId}/curva-abc`).then(r => r.data)
 
 export async function downloadCurvaAbcExcel(versaoId: number): Promise<void> {
-  const resp = await api.get(`/versoes/${versaoId}/curva-abc/export`, {
+  const resp = await api.get<Blob>(`/versoes/${versaoId}/curva-abc/export`, {
     responseType: 'blob',
   })
-  const url = URL.createObjectURL(resp.data as Blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `curva-abc-v${versaoId}.xlsx`
-  a.click()
-  URL.revokeObjectURL(url)
+  const url = URL.createObjectURL(resp.data)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `curva-abc-v${versaoId}.xlsx`
+    a.click()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
