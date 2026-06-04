@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getEmpresaConfig, updateEmpresaConfig } from '@/api/proposta'
@@ -20,6 +20,7 @@ export default function EmpresaSettingsPage() {
   const [declaracoesPadrao, setDeclaracoesPadrao] = useState('')
   const [importOrigem, setImportOrigem] = useState<'sinapi' | 'sicro'>('sinapi')
   const [importFile, setImportFile] = useState<File | null>(null)
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<{
     criadas: number
@@ -40,6 +41,7 @@ export default function EmpresaSettingsPage() {
       .finally(() => setLoading(false))
   }, [papel])
 
+  if (papel === null) return <div className="p-6 text-gray-400">Carregando...</div>
   if (papel !== 'admin') return <Navigate to="/obras" replace />
 
   async function handleSave() {
@@ -67,6 +69,7 @@ export default function EmpresaSettingsPage() {
       const result = await importarComposicoes(importOrigem, importFile)
       setImportResult(result)
       setImportFile(null)
+      if (importFileRef.current) importFileRef.current.value = ''
     } catch {
       toast('Erro ao importar composições', 'error')
     } finally {
@@ -185,6 +188,7 @@ export default function EmpresaSettingsPage() {
             <label className="flex-1">
               <span className="sr-only">Arquivo</span>
               <input
+                ref={importFileRef}
                 type="file"
                 accept=".csv,.xlsx"
                 onChange={e => {

@@ -82,9 +82,9 @@ export default function UsuariosTab() {
             </span>
             <button
               onClick={() => openEditar(u)}
-              disabled={u.id === userId}
+              disabled={userId === null || u.id === userId}
               className="text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed p-1 text-base leading-none"
-              title={u.id === userId ? 'Não é possível editar seu próprio perfil' : 'Editar'}
+              title={userId === null || u.id === userId ? 'Não é possível editar seu próprio perfil' : 'Editar'}
             >
               ✎
             </button>
@@ -149,6 +149,7 @@ function CriarModal({
           <h2 className="text-base font-semibold text-gray-900">Adicionar membro</h2>
           <button
             onClick={onClose}
+            aria-label="Fechar"
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
           >
             ×
@@ -262,6 +263,7 @@ function EditarModal({
           <h2 className="text-base font-semibold text-gray-900">Editar membro</h2>
           <button
             onClick={onClose}
+            aria-label="Fechar"
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
           >
             ×
