@@ -6,9 +6,11 @@ interface AuthState {
   userId: number | null
   papel: string | null
   empresaId: number | null
+  nome: string | null
   login: (email: string, senha: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<boolean>
+  setNome: (nome: string) => void
 }
 
 function parseJwt(token: string) {
@@ -23,18 +25,24 @@ export const useAuth = create<AuthState>((set) => ({
   userId: null,
   papel: null,
   empresaId: null,
+  nome: null,
 
   login: async (email, senha) => {
     const { data } = await axios.post('/auth/login', { email, senha }, { withCredentials: true })
     setAccessToken(data.access_token)
     const payload = parseJwt(data.access_token)
-    set({ userId: Number(payload.sub), papel: payload.papel, empresaId: payload.empresa_id })
+    set({
+      userId: Number(payload.sub),
+      papel: payload.papel,
+      empresaId: payload.empresa_id,
+      nome: payload.nome ?? null,
+    })
   },
 
   logout: async () => {
     await api.post('/auth/logout')
     setAccessToken('')
-    set({ userId: null, papel: null, empresaId: null })
+    set({ userId: null, papel: null, empresaId: null, nome: null })
   },
 
   refresh: async () => {
@@ -42,10 +50,17 @@ export const useAuth = create<AuthState>((set) => ({
       const { data } = await axios.post('/auth/refresh', {}, { withCredentials: true })
       setAccessToken(data.access_token)
       const payload = parseJwt(data.access_token)
-      set({ userId: Number(payload.sub), papel: payload.papel, empresaId: payload.empresa_id })
+      set({
+        userId: Number(payload.sub),
+        papel: payload.papel,
+        empresaId: payload.empresa_id,
+        nome: payload.nome ?? null,
+      })
       return true
     } catch {
       return false
     }
   },
+
+  setNome: (nome) => set({ nome }),
 }))

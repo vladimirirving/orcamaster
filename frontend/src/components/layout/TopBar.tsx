@@ -1,5 +1,7 @@
+import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import PerfilModal from '@/components/layout/PerfilModal'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/' },
@@ -13,10 +15,24 @@ const NAV_ITEMS = [
 ]
 
 export default function TopBar() {
-  const { logout, papel } = useAuth()
+  const { logout, papel, nome } = useAuth()
   const navigate = useNavigate()
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [perfilOpen, setPerfilOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   async function handleLogout() {
+    setDropdownOpen(false)
     await logout()
     navigate('/login')
   }
@@ -37,9 +53,34 @@ export default function TopBar() {
             Configurações
           </Link>
         )}
-        <span className="text-gray-400 capitalize">{papel}</span>
-        <button onClick={handleLogout} className="hover:text-red-400 transition-colors">Sair</button>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen(v => !v)}
+            className="text-gray-300 hover:text-white transition-colors flex items-center gap-1"
+          >
+            {nome ?? papel}
+            <span className="text-gray-500 text-xs">▾</span>
+          </button>
+          {dropdownOpen && (
+            <div className="absolute right-0 top-8 bg-white text-gray-800 rounded-lg shadow-lg py-1 min-w-36 z-50">
+              <button
+                onClick={() => { setDropdownOpen(false); setPerfilOpen(true) }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+              >
+                Meu Perfil
+              </button>
+              <hr className="border-gray-100 my-1" />
+              <button
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Sair
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+      {perfilOpen && <PerfilModal onClose={() => setPerfilOpen(false)} />}
     </header>
   )
 }
