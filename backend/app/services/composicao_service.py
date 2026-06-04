@@ -63,9 +63,11 @@ def _parse_csv(conteudo: bytes) -> list[dict]:
 
 def _parse_xlsx(conteudo: bytes) -> list[dict]:
     wb = openpyxl.load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
-    ws = wb.active
-    rows = list(ws.iter_rows(values_only=True))
-    wb.close()
+    try:
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True)) if ws is not None else []
+    finally:
+        wb.close()
     if not rows:
         return []
     header = [str(h).strip().lower() if h is not None else "" for h in rows[0]]
@@ -112,11 +114,17 @@ async def import_composicoes(
         descricao = row.get("descricao", "").strip()
         unidade = row.get("unidade", "").strip()
         preco_raw = row.get("preco_unitario", "0").strip().replace(",", ".")
-        novo_preco = Decimal(preco_raw) if preco_raw else _ZERO
+        try:
+            novo_preco = Decimal(preco_raw) if preco_raw else _ZERO
+        except Exception:
+            novo_preco = _ZERO
         data_ref: Optional[date] = None
         raw_data = row.get("data_referencia", "").strip()
         if raw_data:
-            data_ref = date.fromisoformat(raw_data)
+            try:
+                data_ref = date.fromisoformat(raw_data[:10])
+            except ValueError:
+                data_ref = None
 
         if codigo in existing:
             comp = existing[codigo]
