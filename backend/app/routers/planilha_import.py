@@ -26,6 +26,7 @@ async def _get_versao_ativa(versao_id: int, current_user: Usuario, db: AsyncSess
             Versao.bloqueada == False,
             Versao.deletada_em.is_(None),
         )
+        .with_for_update()
     )
     versao = result.scalar_one_or_none()
     if versao is None:

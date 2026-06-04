@@ -70,15 +70,15 @@ async def importar_planilha(
     if not all_rows:
         return ImportarPlanilhaResult(grupos_criados=0, itens_criados=0, itens_sem_composicao=0)
 
-    header = [str(h).strip().lower() if h is not None else "" for h in all_rows[0]]
+    raw_header = [str(h).strip().lower() if h is not None else "" for h in all_rows[0]]
+    col_idx: dict[str, int] = {name: i for i, name in enumerate(raw_header)}
 
     def cell(row, col_name: str) -> str:
-        try:
-            idx = header.index(col_name)
-            val = row[idx]
-            return str(val).strip() if val is not None else ""
-        except ValueError:
+        idx = col_idx.get(col_name)
+        if idx is None:
             return ""
+        val = row[idx] if idx < len(row) else None
+        return str(val).strip() if val is not None else ""
 
     r_max = await db.execute(
         select(func.coalesce(func.max(Grupo.ordem), -1)).where(Grupo.versao_id == versao_id)
