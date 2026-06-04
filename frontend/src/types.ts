@@ -176,3 +176,12 @@ export interface PropostaGrupo {
 export interface PropostaSugerida {
   grupos: PropostaGrupo[]
 }
+
+export interface Usuario {
+  id: number
+  empresa_id: number
+  nome: string
+  email: string
+  papel: 'admin' | 'orcamentista' | 'visualizador'
+  ativo: boolean
+}
