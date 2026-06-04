@@ -58,6 +58,7 @@ export const useAuth = create<AuthState>((set) => ({
       })
       return true
     } catch {
+      set({ userId: null, papel: null, empresaId: null, nome: null })
       return false
     }
   },

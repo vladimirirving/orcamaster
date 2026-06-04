@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { updateNome, alterarSenha } from '@/api/perfil'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from '@/hooks/useToast'
@@ -12,6 +12,20 @@ export default function PerfilModal({ onClose }: Props) {
 
   const [novoNome, setNovoNome] = useState(nome ?? '')
   const [savingNome, setSavingNome] = useState(false)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  useEffect(() => {
+    if (!savingNome) {
+      setNovoNome(nome ?? '')
+    }
+  }, [nome, savingNome])
 
   const [senhaAtual, setSenhaAtual] = useState('')
   const [novaSenha, setNovaSenha] = useState('')

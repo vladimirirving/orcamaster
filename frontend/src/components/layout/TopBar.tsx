@@ -33,8 +33,11 @@ export default function TopBar() {
 
   async function handleLogout() {
     setDropdownOpen(false)
-    await logout()
-    navigate('/login')
+    try {
+      await logout()
+    } finally {
+      navigate('/login')
+    }
   }
 
   return (
