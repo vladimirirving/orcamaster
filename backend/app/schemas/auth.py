@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
@@ -13,3 +13,12 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class AlterarNomeRequest(BaseModel):
+    nome: str = Field(min_length=1)
+
+
+class AlterarSenhaRequest(BaseModel):
+    senha_atual: str
+    nova_senha: str = Field(min_length=8)
