@@ -106,9 +106,10 @@ async def importar_composicoes(
 ):
     if origem not in ("sinapi", "sicro"):
         raise HTTPException(status_code=422, detail="origem deve ser 'sinapi' ou 'sicro'")
-    from app.services.composicao_service import import_composicoes_csv
+    from app.services.composicao_service import import_composicoes
     conteudo = await file.read()
-    return await import_composicoes_csv(origem=origem, conteudo=conteudo, db=db)
+    filename = file.filename or "upload.csv"
+    return await import_composicoes(origem=origem, conteudo=conteudo, filename=filename, db=db)
 
 
 @router.get("/{composicao_id}", response_model=ComposicaoOut)

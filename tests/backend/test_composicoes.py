@@ -469,3 +469,41 @@ async def test_empresa_b_nao_ve_composicao_propria_de_empresa_a(
     assert resp_list.status_code == 200
     ids = [c["id"] for c in resp_list.json()]
     assert composicao_propria.id not in ids
+
+
+@pytest.mark.asyncio
+async def test_import_sinapi_xlsx(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession
+):
+    from io import BytesIO
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["codigo", "descricao", "unidade", "preco_unitario"])
+    ws.append(["X001", "SERVICO XLSX TESTE", "UN", 99.50])
+    ws.append(["X002", "OUTRO SERVICO XLSX", "M3", 12.00])
+    buf = BytesIO()
+    wb.save(buf)
+
+    resp = await client.post(
+        "/composicoes/importar",
+        data={"origem": "sinapi"},
+        files={"file": (
+            "sinapi.xlsx",
+            buf.getvalue(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["criadas"] == 2
+    assert data["atualizadas"] == 0
+    assert data["itens_marcados"] == 0
+
+    result = await db_session.execute(
+        select(Composicao).where(Composicao.codigo == "X001", Composicao.origem == "sinapi")
+    )
+    comp = result.scalar_one_or_none()
+    assert comp is not None
+    assert comp.descricao == "SERVICO XLSX TESTE"
