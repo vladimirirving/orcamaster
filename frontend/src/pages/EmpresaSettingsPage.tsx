@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getEmpresaConfig, updateEmpresaConfig } from '@/api/proposta'
+import { importarComposicoes } from '@/api/composicoes'
 import { toast } from '@/hooks/useToast'
 import type { EmpresaConfig } from '@/types'
 
@@ -13,6 +14,10 @@ export default function EmpresaSettingsPage() {
   const [representanteNome, setRepresentanteNome] = useState('')
   const [representanteCpf, setRepresentanteCpf] = useState('')
   const [declaracoesPadrao, setDeclaracoesPadrao] = useState('')
+  const [importOrigem, setImportOrigem] = useState<'sinapi' | 'sicro'>('sinapi')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<{ criadas: number; atualizadas: number; itens_marcados: number } | null>(null)
 
   useEffect(() => {
     if (papel !== 'admin') return
@@ -43,6 +48,21 @@ export default function EmpresaSettingsPage() {
       toast('Erro ao salvar', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleImportar() {
+    if (!importFile) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const result = await importarComposicoes(importOrigem, importFile)
+      setImportResult(result)
+      setImportFile(null)
+    } catch {
+      toast('Erro ao importar composições', 'error')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -100,6 +120,63 @@ export default function EmpresaSettingsPage() {
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4 mt-6">
+        <h2 className="text-sm font-semibold text-gray-800">Banco de Composições</h2>
+        <p className="text-xs text-gray-500">
+          Importe a tabela mensal do SINAPI (CEF) ou SICRO (DNIT). Aceita CSV ou XLSX.
+        </p>
+
+        <div className="flex gap-4">
+          {(['sinapi', 'sicro'] as const).map(o => (
+            <label key={o} className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="importOrigem"
+                value={o}
+                checked={importOrigem === o}
+                onChange={() => setImportOrigem(o)}
+                className="accent-blue-600"
+              />
+              {o.toUpperCase()}
+            </label>
+          ))}
+        </div>
+
+        <div className="flex gap-3 items-center">
+          <label className="flex-1">
+            <span className="sr-only">Arquivo</span>
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              onChange={e => {
+                setImportFile(e.target.files?.[0] ?? null)
+                setImportResult(null)
+              }}
+              className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </label>
+          <button
+            onClick={handleImportar}
+            disabled={!importFile || importing}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 shrink-0"
+          >
+            {importing ? 'Importando…' : 'Importar'}
+          </button>
+        </div>
+
+        {importResult && (
+          <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+            ✓ {importResult.criadas} composições criadas,{' '}
+            {importResult.atualizadas} atualizadas
+            {importResult.itens_marcados > 0 && (
+              <span className="text-yellow-700">
+                {' '}— {importResult.itens_marcados} itens marcados para revisão
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
