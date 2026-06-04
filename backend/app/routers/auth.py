@@ -83,6 +83,7 @@ async def alterar_nome(
     db: AsyncSession = Depends(get_db),
 ):
     current_user.nome = body.nome.strip()
+    db.add(current_user)
     await db.commit()
     await db.refresh(current_user)
     return TokenResponse(access_token=create_access_token(_token_data(current_user)))
@@ -97,5 +98,7 @@ async def alterar_senha(
     if not verify_password(body.senha_atual, current_user.senha_hash):
         raise HTTPException(status_code=400, detail="Senha atual incorreta")
     current_user.senha_hash = hash_password(body.nova_senha)
+    db.add(current_user)
     await db.commit()
+    await db.refresh(current_user)
     return {"ok": True}
