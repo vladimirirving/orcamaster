@@ -1,9 +1,11 @@
 import io
+import zipfile
 from collections import defaultdict
 from decimal import Decimal
 from typing import Optional
 
 import openpyxl
+from fastapi import HTTPException
 from openpyxl.styles import Font, PatternFill
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +57,10 @@ async def importar_planilha(
     conteudo: bytes,
     db: AsyncSession,
 ) -> ImportarPlanilhaResult:
-    wb = openpyxl.load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
+    except (zipfile.BadZipFile, KeyError, Exception) as exc:
+        raise HTTPException(status_code=400, detail="Arquivo inválido. Envie um arquivo .xlsx válido.") from exc
     try:
         ws = wb.active
         all_rows = list(ws.iter_rows(values_only=True)) if ws is not None else []

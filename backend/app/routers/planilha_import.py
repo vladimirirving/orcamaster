@@ -53,8 +53,16 @@ async def importar(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    _MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+
+    if file.content_type not in (_XLSX_MIME, "application/octet-stream"):
+        raise HTTPException(status_code=400, detail="Somente arquivos .xlsx são aceitos.")
+
     await _get_versao_ativa(versao_id, current_user, db)
-    conteudo = await file.read()
+    conteudo = await file.read(_MAX_BYTES + 1)
+    if len(conteudo) > _MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Arquivo muito grande. Limite: 10 MB.")
     return await importar_planilha(
         versao_id=versao_id,
         empresa_id=current_user.empresa_id,

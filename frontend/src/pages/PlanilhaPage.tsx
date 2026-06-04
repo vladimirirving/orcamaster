@@ -124,7 +124,7 @@ export default function PlanilhaPage() {
           onClose={() => setImportModalOpen(false)}
           onSuccess={() => {
             setImportModalOpen(false)
-            getGrupos(numVersaoId).then(setGrupos)
+            getGrupos(numVersaoId).then(setGrupos).catch(() => {})
           }}
         />
       )}
