@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createComposicao, updateComposicao } from '@/api/composicoes'
 import { toast } from '@/hooks/useToast'
 import type { Composicao } from '@/types'
