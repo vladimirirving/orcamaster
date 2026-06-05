@@ -6,12 +6,7 @@ import PerfilModal from '@/components/layout/PerfilModal'
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/' },
   { label: 'Obras', to: '/obras' },
-  { label: 'Orçamento', to: '/orcamento' },
-  { label: 'BDI', to: '/bdi' },
-  { label: 'Cronograma', to: '/cronograma' },
-  { label: 'Medição', to: '/medicao' },
   { label: 'Relatórios', to: '/relatorios' },
-  { label: 'Base de Comp.', to: '/composicoes' },
 ]
 
 export default function TopBar() {
