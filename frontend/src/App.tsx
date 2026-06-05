@@ -11,6 +11,10 @@ import Toaster from '@/components/layout/Toaster'
 import EmpresaSettingsPage from '@/pages/EmpresaSettingsPage'
 import RelatoriosPage from '@/pages/RelatoriosPage'
 import ComposicoesPage from '@/pages/ComposicoesPage'
+import ClientesPage from '@/pages/ClientesPage'
+import ClienteDetailPage from '@/pages/ClienteDetailPage'
+import FornecedoresPage from '@/pages/FornecedoresPage'
+import FornecedorDetailPage from '@/pages/FornecedorDetailPage'
 
 function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -38,6 +42,13 @@ export default function App() {
                 <Route path="/configuracoes" element={<EmpresaSettingsPage />} />
                 <Route path="/composicoes" element={<ComposicoesPage />} />
                 <Route path="/relatorios" element={<RelatoriosPage />} />
+                <Route path="/clientes" element={<ClientesPage />} />
+                <Route path="/clientes/:id" element={<ClienteDetailPage />} />
+                <Route path="/fornecedores" element={<FornecedoresPage />} />
+                <Route path="/fornecedores/:id" element={<FornecedorDetailPage />} />
+                <Route path="/insumos" element={
+                  <div className="p-10 text-center text-gray-400 text-sm">Módulo Insumos — em breve.</div>
+                } />
                 <Route path="*" element={
                   <div className="p-10 text-center text-gray-400 text-sm">Página não encontrada.</div>
                 } />
