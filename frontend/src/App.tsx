@@ -10,6 +10,7 @@ import TopBar from '@/components/layout/TopBar'
 import Toaster from '@/components/layout/Toaster'
 import EmpresaSettingsPage from '@/pages/EmpresaSettingsPage'
 import RelatoriosPage from '@/pages/RelatoriosPage'
+import ComposicoesPage from '@/pages/ComposicoesPage'
 
 function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -35,7 +36,11 @@ export default function App() {
                 <Route path="/obras/:id" element={<ObraDetailPage />} />
                 <Route path="/obras/:obraId/versoes/:versaoId" element={<PlanilhaPage />} />
                 <Route path="/configuracoes" element={<EmpresaSettingsPage />} />
+                <Route path="/composicoes" element={<ComposicoesPage />} />
                 <Route path="/relatorios" element={<RelatoriosPage />} />
+                <Route path="*" element={
+                  <div className="p-10 text-center text-gray-400 text-sm">Página não encontrada.</div>
+                } />
               </Routes>
             </AppLayout>
           </ProtectedRoute>

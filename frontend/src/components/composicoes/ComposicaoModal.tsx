@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createComposicao, updateComposicao } from '@/api/composicoes'
 import { toast } from '@/hooks/useToast'
 import type { Composicao } from '@/types'
@@ -15,7 +15,7 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
   const [descricao, setDescricao] = useState(composicao?.descricao ?? '')
   const [unidade, setUnidade] = useState(composicao?.unidade ?? '')
   const [precoUnitario, setPrecoUnitario] = useState(
-    composicao?.preco_unitario != null ? String(composicao.preco_unitario) : ''
+    composicao?.preco_unitario != null ? String(parseFloat(String(composicao.preco_unitario))) : ''
   )
   const [saving, setSaving] = useState(false)
   const [codigoError, setCodigoError] = useState('')
@@ -44,7 +44,7 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
       }
       onSuccess()
     } catch (e: any) {
-      if (e?.response?.status === 409 || e?.response?.status === 400) {
+      if (e?.response?.status === 409) {
         setCodigoError('Código já cadastrado.')
       } else {
         toast('Erro ao salvar composição', 'error')
