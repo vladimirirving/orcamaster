@@ -45,12 +45,17 @@ export default function RelatoriosPage() {
     key: string,
     fn: () => Promise<void>,
     label: string,
+    notFoundMessage?: string,
   ) {
     setDownloading(prev => ({ ...prev, [key]: true }))
     try {
       await fn()
-    } catch {
-      toast(`Erro ao baixar ${label}`, 'error')
+    } catch (e: any) {
+      if (notFoundMessage && e?.response?.status === 404) {
+        toast(notFoundMessage, 'error')
+      } else {
+        toast(`Erro ao baixar ${label}`, 'error')
+      }
     } finally {
       setDownloading(prev => ({ ...prev, [key]: false }))
     }
@@ -95,7 +100,12 @@ export default function RelatoriosPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() =>
-                      handleDownload(pdfKey, () => downloadPropostaPdf(versao.id), 'proposta PDF')
+                      handleDownload(
+                        pdfKey,
+                        () => downloadPropostaPdf(versao.id),
+                        'proposta PDF',
+                        'Proposta não configurada. Configure em Obras antes de exportar.',
+                      )
                     }
                     disabled={downloading[pdfKey]}
                     aria-label={downloading[pdfKey] ? 'Baixando proposta PDF…' : 'Baixar PDF Proposta'}

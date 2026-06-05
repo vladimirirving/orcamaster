@@ -18,8 +18,10 @@ export async function downloadPropostaPdf(versaoId: number): Promise<void> {
   const a = document.createElement('a')
   a.href = url
   a.download = `proposta-v${versaoId}.pdf`
+  document.body.appendChild(a)
   a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 100)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 30_000)
 }
 
 export const getEmpresaConfig = (): Promise<EmpresaConfig> =>

@@ -12,6 +12,8 @@ export async function downloadCurvaAbcExcel(versaoId: number): Promise<void> {
   const a = document.createElement('a')
   a.href = url
   a.download = `curva-abc-v${versaoId}.xlsx`
+  document.body.appendChild(a)
   a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 100)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 30_000)
 }
