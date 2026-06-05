@@ -15,3 +15,25 @@ export async function importarComposicoes(
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)
 }
+
+export const listComposicoesProprias = (q?: string): Promise<Composicao[]> =>
+  api.get<Composicao[]>('/composicoes', {
+    params: { origem: 'propria', q: q || undefined, limit: 200 },
+  }).then(r => r.data)
+
+export const createComposicao = (data: {
+  codigo: string
+  descricao: string
+  unidade: string
+  preco_unitario: string
+}): Promise<Composicao> =>
+  api.post<Composicao>('/composicoes', data).then(r => r.data)
+
+export const updateComposicao = (
+  id: number,
+  data: { codigo?: string; descricao?: string; unidade?: string; preco_unitario?: string },
+): Promise<Composicao> =>
+  api.patch<Composicao>(`/composicoes/${id}`, data).then(r => r.data)
+
+export const deleteComposicao = (id: number): Promise<void> =>
+  api.delete(`/composicoes/${id}`)

@@ -56,6 +56,7 @@ export interface BDI {
 
 export interface Composicao {
   id: number
+  empresa_id: number | null   // null = SINAPI/SICRO; number = própria da empresa
   origem: string
   codigo: string
   descricao: string
