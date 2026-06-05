@@ -5,6 +5,8 @@ export interface Obra {
   estado: string
   data_criacao: string
   cliente: string | null
+  cliente_id: number | null
+  cliente_nome: string | null
   municipio: string | null
   uf: string | null
 }
@@ -185,4 +187,34 @@ export interface Usuario {
   email: string
   papel: 'admin' | 'orcamentista' | 'visualizador'
   ativo: boolean
+}
+
+export interface Cliente {
+  id: number
+  empresa_id: number
+  tipo: 'pf' | 'pj'
+  nome: string
+  cpf_cnpj: string | null
+  email: string | null
+  telefone: string | null
+  endereco: string | null
+  cidade: string | null
+  estado: string | null
+  observacoes: string | null
+  created_at: string
+}
+
+export interface Fornecedor {
+  id: number
+  empresa_id: number
+  nome: string
+  cnpj: string | null
+  email: string | null
+  telefone: string | null
+  endereco: string | null
+  cidade: string | null
+  estado: string | null
+  categorias: string | null
+  observacoes: string | null
+  created_at: string
 }
