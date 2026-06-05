@@ -106,7 +106,10 @@ async def delete_cliente(
 ):
     c = await _get_cliente(cliente_id, current_user, db)
     count_result = await db.execute(
-        select(func.count()).select_from(Obra).where(Obra.cliente_id == cliente_id)
+        select(func.count()).select_from(Obra).where(
+            Obra.cliente_id == cliente_id,
+            Obra.empresa_id == current_user.empresa_id,
+        )
     )
     if count_result.scalar() > 0:
         raise HTTPException(
