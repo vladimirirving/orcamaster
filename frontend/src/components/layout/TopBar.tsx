@@ -6,6 +6,7 @@ import PerfilModal from '@/components/layout/PerfilModal'
 const NAV_ITEMS = [
   { label: 'Dashboard', to: '/' },
   { label: 'Obras', to: '/obras' },
+  { label: 'Base de Comp.', to: '/composicoes' },
   { label: 'Relatórios', to: '/relatorios' },
 ]
 
