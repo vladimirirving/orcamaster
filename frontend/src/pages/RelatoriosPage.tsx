@@ -19,13 +19,18 @@ export default function RelatoriosPage() {
     async function load() {
       try {
         const obras = await getObras()
-        const results = await Promise.all(
+        const settled = await Promise.allSettled(
           obras.map(async obra => {
             const versoes = await getVersoes(obra.id)
-            const ativa = versoes.find(v => !v.bloqueada && v.deletada_em === null)
+            const ativa = [...versoes]
+              .reverse()
+              .find(v => !v.bloqueada && v.deletada_em === null)
             return ativa ? { obra, versao: ativa } : null
           })
         )
+        const results = settled
+          .filter((r): r is PromiseFulfilledResult<ObraComVersao | null> => r.status === 'fulfilled')
+          .map(r => r.value)
         setItems(results.filter((r): r is ObraComVersao => r !== null))
       } catch {
         toast('Erro ao carregar obras', 'error')

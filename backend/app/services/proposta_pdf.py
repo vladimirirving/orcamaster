@@ -59,5 +59,5 @@ async def gerar_pdf_bytes(versao_id: int, db: AsyncSession) -> bytes:
         bdi=bdi,
         grupos=grupos,
     )
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, HTML(string=html_str).write_pdf)
