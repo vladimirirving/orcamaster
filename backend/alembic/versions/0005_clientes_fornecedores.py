@@ -61,9 +61,11 @@ def upgrade() -> None:
         sa.ForeignKey('cliente.id', ondelete='SET NULL'),
         nullable=True,
     ))
+    op.create_index('ix_obra_cliente_id', 'obra', ['cliente_id'])
 
 
 def downgrade() -> None:
+    op.drop_index('ix_obra_cliente_id', table_name='obra')
     op.drop_column('obra', 'cliente_id')
     op.drop_table('fornecedor')
     op.drop_table('cliente')
