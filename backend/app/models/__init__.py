@@ -1,6 +1,8 @@
 from app.models.base import Base  # noqa: F401
 from app.models.empresa import Empresa  # noqa: F401
 from app.models.usuario import Usuario  # noqa: F401
+from app.models.cliente import Cliente  # noqa: F401
+from app.models.fornecedor import Fornecedor  # noqa: F401
 from app.models.obra import Obra  # noqa: F401
 from app.models.versao import Versao  # noqa: F401
 from app.models.grupo import Grupo  # noqa: F401
