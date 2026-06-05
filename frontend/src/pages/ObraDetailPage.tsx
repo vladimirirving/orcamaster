@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Copy, Unlock, Trash2, Plus, ExternalLink } from 'lucide-react'
 import { getObra, getVersoes, createVersao } from '@/api/obras'
+import { updateObra } from '@/api/obras'
+import { listClientes } from '@/api/clientes'
 import { duplicarVersao, softDeleteVersao, restoreVersao } from '@/api/versoes'
 import { toast } from '@/hooks/useToast'
 import { fmtBRL } from '@/lib/utils'
-import type { Obra, Versao } from '@/types'
+import type { Obra, Versao, Cliente } from '@/types'
 import ObraDashboard from '@/components/obra/ObraDashboard'
 import CurvaAbc from '@/components/obra/CurvaAbc'
 import PropostaTab from '@/components/obra/PropostaTab'
@@ -21,6 +23,9 @@ export default function ObraDetailPage() {
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
   const [tab, setTab] = useState<'versoes' | 'dashboard' | 'curva-abc' | 'proposta' | 'pacote' | 'agente'>('versoes')
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clienteSelectOpen, setClienteSelectOpen] = useState(false)
+  const [clienteSearch, setClienteSearch] = useState('')
 
   async function reload() {
     const [o, vs] = await Promise.all([getObra(obraId), getVersoes(obraId)])
@@ -74,6 +79,24 @@ export default function ObraDetailPage() {
     }
   }
 
+  useEffect(() => {
+    if (clienteSelectOpen) {
+      listClientes().then(setClientes)
+    }
+  }, [clienteSelectOpen])
+
+  async function handleVincularCliente(clienteId: number | null) {
+    try {
+      const updated = await updateObra(obraId, { cliente_id: clienteId })
+      setObra(updated)
+      setClienteSelectOpen(false)
+      setClienteSearch('')
+      toast(clienteId ? 'Cliente vinculado' : 'Cliente desvinculado')
+    } catch {
+      toast('Erro ao vincular cliente', 'error')
+    }
+  }
+
   if (loading) return <div className="p-6 text-gray-500">Carregando...</div>
   if (!obra) return <div className="p-6 text-red-500">Obra não encontrada</div>
 
@@ -98,6 +121,77 @@ export default function ObraDetailPage() {
           </button>
         )}
       </div>
+
+      {/* Card de cliente */}
+      <div className="mt-3 flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <div className="flex-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wide leading-none mb-0.5">Cliente</p>
+          {obra.cliente_id ? (
+            <Link
+              to={`/clientes/${obra.cliente_id}`}
+              className="text-sm font-medium text-blue-600 hover:underline"
+              onClick={e => e.stopPropagation()}
+            >
+              {obra.cliente_nome ?? obra.cliente ?? `Cliente #${obra.cliente_id}`} →
+            </Link>
+          ) : (
+            <span className="text-sm text-gray-400">Nenhum cliente vinculado</span>
+          )}
+        </div>
+        <button
+          onClick={() => setClienteSelectOpen(true)}
+          className="text-xs border border-gray-300 px-2 py-1 rounded hover:bg-white transition-colors text-gray-600"
+        >
+          {obra.cliente_id ? 'Alterar' : 'Vincular'}
+        </button>
+      </div>
+
+      {/* Modal de seleção de cliente */}
+      {clienteSelectOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">Vincular cliente</h3>
+              <button onClick={() => setClienteSelectOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <input
+              type="text"
+              value={clienteSearch}
+              onChange={e => setClienteSearch(e.target.value)}
+              placeholder="Buscar cliente…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {obra.cliente_id && (
+                <button
+                  onClick={() => handleVincularCliente(null)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50"
+                >
+                  Remover vínculo
+                </button>
+              )}
+              {clientes
+                .filter(c => !clienteSearch || c.nome.toLowerCase().includes(clienteSearch.toLowerCase()))
+                .map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => handleVincularCliente(c.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-blue-50 ${obra.cliente_id === c.id ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                  >
+                    {c.nome}
+                    {c.cpf_cnpj && <span className="ml-2 text-gray-400 text-xs">{c.cpf_cnpj}</span>}
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-0 border-b border-gray-200 mb-6 mt-4">
         {(['versoes', 'dashboard', 'curva-abc', 'proposta', 'pacote', 'agente'] as const).map(t => (
