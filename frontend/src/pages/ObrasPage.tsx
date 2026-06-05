@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Plus } from 'lucide-react'
 import { getObras, createObra } from '@/api/obras'
+import { listClientes } from '@/api/clientes'
 import { toast } from '@/hooks/useToast'
-import type { Obra } from '@/types'
+import type { Obra, Cliente } from '@/types'
 
 const TIPOS = [
   { value: 'rodovia', label: 'Rodovia' },
@@ -21,21 +22,32 @@ export default function ObrasPage() {
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState('rodovia')
   const [saving, setSaving] = useState(false)
+  const [clienteId, setClienteId] = useState<number | ''>('')
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const navigate = useNavigate()
 
   useEffect(() => {
     getObras().then(setObras).finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (open) listClientes().then(setClientes)
+  }, [open])
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
-      const obra = await createObra({ nome, tipo_obra: tipo })
+      const obra = await createObra({
+        nome,
+        tipo_obra: tipo,
+        cliente_id: clienteId !== '' ? clienteId : undefined,
+      })
       setObras(prev => [...prev, obra])
       setOpen(false)
       setNome('')
       setTipo('rodovia')
+      setClienteId('')
       toast('Obra criada com sucesso')
     } catch {
       toast('Erro ao criar obra', 'error')
@@ -48,7 +60,7 @@ export default function ObrasPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Obras</h1>
-        <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Root open={open} onOpenChange={v => { setOpen(v); if (!v) { setNome(''); setTipo('rodovia'); setClienteId('') } }}>
           <Dialog.Trigger asChild>
             <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
               <Plus size={16} /> Nova Obra
@@ -77,6 +89,21 @@ export default function ObrasPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cliente <span className="text-gray-400 font-normal text-xs">(opcional)</span>
+                  </label>
+                  <select
+                    value={clienteId}
+                    onChange={e => setClienteId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Sem cliente</option>
+                    {clientes.map(c => (
+                      <option key={c.id} value={c.id}>{c.nome}{c.cpf_cnpj ? ` — ${c.cpf_cnpj}` : ''}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
