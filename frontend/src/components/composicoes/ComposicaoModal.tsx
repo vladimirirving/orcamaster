@@ -14,7 +14,9 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
   const [codigo, setCodigo] = useState(composicao?.codigo ?? '')
   const [descricao, setDescricao] = useState(composicao?.descricao ?? '')
   const [unidade, setUnidade] = useState(composicao?.unidade ?? '')
-  const [precoUnitario, setPrecoUnitario] = useState(composicao?.preco_unitario ?? '')
+  const [precoUnitario, setPrecoUnitario] = useState(
+    composicao?.preco_unitario != null ? String(composicao.preco_unitario) : ''
+  )
   const [saving, setSaving] = useState(false)
   const [codigoError, setCodigoError] = useState('')
 
@@ -22,7 +24,7 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
     codigo.trim().length > 0 &&
     descricao.trim().length > 0 &&
     unidade.trim().length > 0 &&
-    parseFloat(precoUnitario.replace(',', '.')) > 0
+    parseFloat(String(precoUnitario).replace(',', '.')) > 0
 
   async function handleSubmit() {
     if (!isValid) return
@@ -32,7 +34,7 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
       codigo: codigo.trim(),
       descricao: descricao.trim(),
       unidade: unidade.trim(),
-      preco_unitario: precoUnitario.replace(',', '.'),
+      preco_unitario: String(precoUnitario).replace(',', '.'),
     }
     try {
       if (isEdit && composicao) {
@@ -42,7 +44,7 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
       }
       onSuccess()
     } catch (e: any) {
-      if (e?.response?.status >= 400 && e?.response?.status < 500) {
+      if (e?.response?.status === 409 || e?.response?.status === 400) {
         setCodigoError('Código já cadastrado.')
       } else {
         toast('Erro ao salvar composição', 'error')
@@ -70,18 +72,21 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Código</label>
+            <label htmlFor="campo-codigo" className="block text-xs font-medium text-gray-700 mb-1">Código</label>
             <input
+              id="campo-codigo"
               type="text"
               value={codigo}
               onChange={e => { setCodigo(e.target.value); setCodigoError('') }}
+              aria-describedby={codigoError ? 'codigo-error' : undefined}
               className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${codigoError ? 'border-red-400' : 'border-gray-300'}`}
             />
-            {codigoError && <p className="text-xs text-red-500 mt-1">{codigoError}</p>}
+            {codigoError && <p id="codigo-error" role="alert" className="text-xs text-red-500 mt-1">{codigoError}</p>}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Descrição</label>
+            <label htmlFor="campo-descricao" className="block text-xs font-medium text-gray-700 mb-1">Descrição</label>
             <input
+              id="campo-descricao"
               type="text"
               value={descricao}
               onChange={e => setDescricao(e.target.value)}
@@ -90,8 +95,9 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Unidade</label>
+              <label htmlFor="campo-unidade" className="block text-xs font-medium text-gray-700 mb-1">Unidade</label>
               <input
+                id="campo-unidade"
                 type="text"
                 value={unidade}
                 onChange={e => setUnidade(e.target.value)}
@@ -100,8 +106,9 @@ export default function ComposicaoModal({ composicao, onClose, onSuccess }: Prop
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Preço Unitário (R$)</label>
+              <label htmlFor="campo-preco" className="block text-xs font-medium text-gray-700 mb-1">Preço Unitário (R$)</label>
               <input
+                id="campo-preco"
                 type="number"
                 min="0.01"
                 step="0.01"

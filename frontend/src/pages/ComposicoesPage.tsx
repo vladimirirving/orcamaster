@@ -37,9 +37,12 @@ export default function ComposicoesPage() {
     try {
       await deleteComposicao(id)
       setConfirmDelete(null)
-      listComposicoesProprias(q || undefined).then(setComposicoes)
+      listComposicoesProprias(q || undefined)
+        .then(setComposicoes)
+        .catch(() => toast('Erro ao carregar composições', 'error'))
     } catch {
       toast('Erro ao excluir composição', 'error')
+      setConfirmDelete(null)
     } finally {
       setDeleting(false)
     }
@@ -48,7 +51,9 @@ export default function ComposicoesPage() {
   function handleSuccess() {
     setModal(null)
     setEditTarget(null)
-    listComposicoesProprias(q || undefined).then(setComposicoes)
+    listComposicoesProprias(q || undefined)
+      .then(setComposicoes)
+      .catch(() => toast('Erro ao carregar composições', 'error'))
   }
 
   return (
@@ -121,12 +126,14 @@ export default function ComposicoesPage() {
                         <button
                           onClick={() => handleDelete(c.id)}
                           disabled={deleting}
+                          aria-label={`Confirmar exclusão de ${c.codigo}`}
                           className="text-xs text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded disabled:opacity-40"
                         >
                           Confirmar
                         </button>
                         <button
                           onClick={() => setConfirmDelete(null)}
+                          aria-label={`Cancelar exclusão de ${c.codigo}`}
                           className="text-xs text-gray-500 hover:text-gray-700"
                         >
                           Cancelar
