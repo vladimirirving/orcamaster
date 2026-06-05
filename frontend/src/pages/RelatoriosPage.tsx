@@ -93,6 +93,7 @@ export default function RelatoriosPage() {
                       handleDownload(pdfKey, () => downloadPropostaPdf(versao.id), 'proposta PDF')
                     }
                     disabled={downloading[pdfKey]}
+                    aria-label={downloading[pdfKey] ? 'Baixando proposta PDF…' : 'Baixar PDF Proposta'}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-700 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {downloading[pdfKey] ? (
@@ -109,6 +110,7 @@ export default function RelatoriosPage() {
                       handleDownload(xlsxKey, () => downloadCurvaAbcExcel(versao.id), 'Curva ABC')
                     }
                     disabled={downloading[xlsxKey]}
+                    aria-label={downloading[xlsxKey] ? 'Baixando Curva ABC…' : 'Baixar XLSX Curva ABC'}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-700 hover:border-green-400 hover:text-green-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {downloading[xlsxKey] ? (
