@@ -111,3 +111,67 @@ async def test_tenant_isolation(client: AsyncClient, auth_headers: dict, obra, d
 
     r = await client.get(f"/obras/{obra.id}/diario", headers=headers_b)
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_upload_foto(client: AsyncClient, auth_headers: dict, obra):
+    r = await client.post(
+        f"/obras/{obra.id}/diario",
+        json={"data": "2026-06-01", "clima": "ensolarado", "efetivo": 1, "atividades": "Teste foto"},
+        headers=auth_headers,
+    )
+    eid = r.json()["id"]
+    import io
+    fake_img = io.BytesIO(b"\xff\xd8\xff" + b"\x00" * 100)
+    r2 = await client.post(
+        f"/obras/{obra.id}/diario/{eid}/fotos",
+        files={"file": ("foto.jpg", fake_img, "image/jpeg")},
+        headers=auth_headers,
+    )
+    assert r2.status_code == 201
+    assert r2.json()["nome_original"] == "foto.jpg"
+
+
+@pytest.mark.asyncio
+async def test_upload_foto_limite_5(client: AsyncClient, auth_headers: dict, obra):
+    r = await client.post(
+        f"/obras/{obra.id}/diario",
+        json={"data": "2026-06-10", "clima": "nublado", "efetivo": 1, "atividades": "Limite"},
+        headers=auth_headers,
+    )
+    eid = r.json()["id"]
+    import io
+    for i in range(5):
+        fake_img = io.BytesIO(b"\xff\xd8\xff" + b"\x00" * 10)
+        await client.post(
+            f"/obras/{obra.id}/diario/{eid}/fotos",
+            files={"file": (f"foto{i}.jpg", fake_img, "image/jpeg")},
+            headers=auth_headers,
+        )
+    extra = io.BytesIO(b"\xff\xd8\xff" + b"\x00" * 10)
+    r2 = await client.post(
+        f"/obras/{obra.id}/diario/{eid}/fotos",
+        files={"file": ("extra.jpg", extra, "image/jpeg")},
+        headers=auth_headers,
+    )
+    assert r2.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_delete_foto(client: AsyncClient, auth_headers: dict, obra):
+    r = await client.post(
+        f"/obras/{obra.id}/diario",
+        json={"data": "2026-06-15", "clima": "ensolarado", "efetivo": 1, "atividades": "Del foto"},
+        headers=auth_headers,
+    )
+    eid = r.json()["id"]
+    import io
+    fake_img = io.BytesIO(b"\xff\xd8\xff" + b"\x00" * 10)
+    r2 = await client.post(
+        f"/obras/{obra.id}/diario/{eid}/fotos",
+        files={"file": ("del.jpg", fake_img, "image/jpeg")},
+        headers=auth_headers,
+    )
+    fid = r2.json()["id"]
+    r3 = await client.delete(f"/obras/{obra.id}/diario/{eid}/fotos/{fid}", headers=auth_headers)
+    assert r3.status_code == 204

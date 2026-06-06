@@ -1,6 +1,9 @@
+import io
 import os
+import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import set_committed_value
@@ -11,8 +14,12 @@ from app.models.diario import DiarioObra, DiarioFoto
 from app.models.obra import Obra
 from app.models.usuario import Usuario
 from app.schemas.diario import (
-    DiarioCreate, DiarioUpdate, DiarioOut, DiarioListItem,
+    DiarioCreate, DiarioUpdate, DiarioOut, DiarioListItem, DiarioFotoOut,
 )
+
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_FOTO_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_FOTOS_POR_ENTRADA = 5
 
 router = APIRouter(tags=["diario"])
 
@@ -146,4 +153,97 @@ async def delete_entrada(
         if os.path.exists(path):
             os.remove(path)
     await db.delete(entry)
+    await db.commit()
+
+
+@router.post(
+    "/obras/{obra_id}/diario/{entry_id}/fotos",
+    response_model=DiarioFotoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_foto(
+    obra_id: int,
+    entry_id: int,
+    file: UploadFile = File(...),
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_entrada(obra_id, entry_id, current_user, db)
+
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=422, detail="Tipo de arquivo não suportado. Use JPEG, PNG ou WebP.")
+
+    count_r = await db.execute(
+        select(func.count()).select_from(DiarioFoto).where(DiarioFoto.diario_id == entry_id)
+    )
+    if (count_r.scalar() or 0) >= MAX_FOTOS_POR_ENTRADA:
+        raise HTTPException(status_code=422, detail=f"Limite de {MAX_FOTOS_POR_ENTRADA} fotos por entrada atingido")
+
+    contents = await file.read()
+    if len(contents) > MAX_FOTO_BYTES:
+        raise HTTPException(status_code=422, detail="Arquivo muito grande. Máximo 5MB.")
+
+    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
+    filename = f"{entry_id}_{uuid.uuid4().hex}.{ext}"
+    diario_dir = settings.diario_dir
+    os.makedirs(diario_dir, exist_ok=True)
+    path = os.path.join(diario_dir, filename)
+    with open(path, "wb") as f:
+        f.write(contents)
+
+    foto = DiarioFoto(
+        diario_id=entry_id,
+        nome_original=file.filename or filename,
+        caminho=filename,
+        tamanho_bytes=len(contents),
+    )
+    db.add(foto)
+    await db.commit()
+    await db.refresh(foto)
+    return foto
+
+
+@router.get("/obras/{obra_id}/diario/{entry_id}/fotos/{foto_id}")
+async def get_foto(
+    obra_id: int,
+    entry_id: int,
+    foto_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_entrada(obra_id, entry_id, current_user, db)
+    result = await db.execute(
+        select(DiarioFoto).where(DiarioFoto.id == foto_id, DiarioFoto.diario_id == entry_id)
+    )
+    foto = result.scalar_one_or_none()
+    if foto is None:
+        raise HTTPException(status_code=404, detail="Foto não encontrada")
+    path = os.path.join(settings.diario_dir, foto.caminho)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    return FileResponse(path, filename=foto.nome_original)
+
+
+@router.delete(
+    "/obras/{obra_id}/diario/{entry_id}/fotos/{foto_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_foto(
+    obra_id: int,
+    entry_id: int,
+    foto_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_entrada(obra_id, entry_id, current_user, db)
+    result = await db.execute(
+        select(DiarioFoto).where(DiarioFoto.id == foto_id, DiarioFoto.diario_id == entry_id)
+    )
+    foto = result.scalar_one_or_none()
+    if foto is None:
+        raise HTTPException(status_code=404, detail="Foto não encontrada")
+    path = os.path.join(settings.diario_dir, foto.caminho)
+    if os.path.exists(path):
+        os.remove(path)
+    await db.delete(foto)
     await db.commit()
