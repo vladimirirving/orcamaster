@@ -14,3 +14,4 @@ from app.models.cronograma_linha import CronogramaLinha  # noqa: F401
 from app.models.medicao import Medicao  # noqa: F401
 from app.models.pacote_job import PacoteJob  # noqa: F401
 from app.models.proposta_config import PropostaConfig  # noqa: F401
+from app.models.diario import DiarioObra, DiarioFoto  # noqa: F401
