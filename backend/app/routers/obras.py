@@ -19,11 +19,30 @@ router = APIRouter(prefix="/obras", tags=["obras"])
 async def _set_cliente_nome(obra, db) -> None:
     """Populate transient cliente_nome field for ObraOut serialization."""
     if obra.cliente_id:
-        r = await db.execute(select(ClienteModel).where(ClienteModel.id == obra.cliente_id))
+        r = await db.execute(
+            select(ClienteModel).where(
+                ClienteModel.id == obra.cliente_id,
+                ClienteModel.empresa_id == obra.empresa_id,
+            )
+        )
         c = r.scalar_one_or_none()
         obra.cliente_nome = c.nome if c else None
     else:
         obra.cliente_nome = None
+
+
+async def _validate_cliente_id(cliente_id: int | None, empresa_id: int, db: AsyncSession) -> None:
+    """Raise 422 if cliente_id is provided but doesn't belong to this empresa."""
+    if cliente_id is None:
+        return
+    exists = await db.scalar(
+        select(ClienteModel.id).where(
+            ClienteModel.id == cliente_id,
+            ClienteModel.empresa_id == empresa_id,
+        )
+    )
+    if not exists:
+        raise HTTPException(status_code=422, detail="cliente_id inválido")
 
 
 @router.get("", response_model=List[ObraOut])
@@ -46,6 +65,7 @@ async def create_obra(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await _validate_cliente_id(body.cliente_id, current_user.empresa_id, db)
     obra = Obra(
         empresa_id=current_user.empresa_id,
         nome=body.nome,
@@ -100,6 +120,8 @@ async def update_obra(
     obra = result.scalar_one_or_none()
     if obra is None:
         raise HTTPException(status_code=404, detail="Obra não encontrada")
+    if body.cliente_id is not None:
+        await _validate_cliente_id(body.cliente_id, current_user.empresa_id, db)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(obra, field, value)
     await db.commit()
