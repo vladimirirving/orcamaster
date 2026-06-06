@@ -12,6 +12,7 @@ from app.routers import agente
 from app.routers import planilha_import
 from app.routers.clientes import router as clientes_router
 from app.routers.fornecedores import router as fornecedores_router
+from app.routers.diario import router as diario_router
 from app.scheduler import start_scheduler, stop_scheduler
 
 
@@ -50,3 +51,4 @@ app.include_router(agente.router)
 app.include_router(planilha_import.router)
 app.include_router(clientes_router)
 app.include_router(fornecedores_router)
+app.include_router(diario_router)
