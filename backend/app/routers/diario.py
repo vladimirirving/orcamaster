@@ -247,3 +247,21 @@ async def delete_foto(
         os.remove(path)
     await db.delete(foto)
     await db.commit()
+
+
+@router.get("/obras/{obra_id}/diario/{entry_id}/rdo.pdf")
+async def download_rdo(
+    obra_id: int,
+    entry_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.diario_pdf import gerar_rdo_bytes
+    entry = await _get_entrada(obra_id, entry_id, current_user, db)
+    pdf_bytes = await gerar_rdo_bytes(entry_id, db)
+    nome = f"RDO_{entry.data.strftime('%Y-%m-%d')}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
+    )
