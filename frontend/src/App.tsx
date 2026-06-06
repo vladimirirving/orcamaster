@@ -15,6 +15,7 @@ import ClientesPage from '@/pages/ClientesPage'
 import ClienteDetailPage from '@/pages/ClienteDetailPage'
 import FornecedoresPage from '@/pages/FornecedoresPage'
 import FornecedorDetailPage from '@/pages/FornecedorDetailPage'
+import DiarioObraPage from '@/pages/DiarioObraPage'
 
 function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -46,6 +47,7 @@ export default function App() {
                 <Route path="/clientes/:id" element={<ClienteDetailPage />} />
                 <Route path="/fornecedores" element={<FornecedoresPage />} />
                 <Route path="/fornecedores/:id" element={<FornecedorDetailPage />} />
+                <Route path="/obras/:obraId/diario" element={<DiarioObraPage />} />
                 <Route path="/insumos" element={
                   <div className="p-10 text-center text-gray-400 text-sm">Módulo Insumos — em breve.</div>
                 } />
