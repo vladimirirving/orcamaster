@@ -14,7 +14,7 @@ from app.models.usuario import Usuario
 _template_dir = Path(__file__).resolve().parent.parent / "templates"
 _jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(str(_template_dir)),
-    autoescape=False,
+    autoescape=jinja2.select_autoescape(["html", "htm", "j2", "xml"]),
 )
 
 _CLIMA_LABELS = {

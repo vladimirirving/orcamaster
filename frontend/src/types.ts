@@ -218,3 +218,28 @@ export interface Fornecedor {
   observacoes: string | null
   created_at: string
 }
+
+export interface DiarioFoto {
+  id: number
+  diario_id: number
+  nome_original: string
+  tamanho_bytes: number
+  criado_em: string
+}
+
+export interface DiarioEntrada {
+  id: number
+  obra_id: number
+  data: string              // YYYY-MM-DD
+  clima: 'ensolarado' | 'parcialmente_nublado' | 'nublado' | 'chuvoso'
+  turnos: string | null     // CSV: 'manha,tarde,noite'
+  efetivo: number
+  equipes: string | null
+  equipamentos: string | null
+  atividades: string
+  ocorrencias: string | null
+  criado_por: number | null
+  created_at: string
+  fotos: DiarioFoto[]
+  qtd_fotos?: number
+}

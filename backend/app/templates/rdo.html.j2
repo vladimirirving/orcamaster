@@ -84,7 +84,7 @@
 <div class="fotos-grid">
   {% for foto in fotos %}
   <div class="foto-item">
-    <img src="file://{{ foto.path_abs }}" alt="{{ foto.nome_original }}" />
+    <img src="file://{{ foto.path_abs | safe }}" alt="{{ foto.nome_original }}" />
     <div class="foto-nome">{{ foto.nome_original }}</div>
   </div>
   {% endfor %}
