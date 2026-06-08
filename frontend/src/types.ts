@@ -243,3 +243,50 @@ export interface DiarioEntrada {
   fotos: DiarioFoto[]
   qtd_fotos?: number
 }
+
+export interface RelatorioMedicaoGrupo {
+  grupo_id: number
+  grupo_nome: string
+  planejado_pct: number
+  realizado_pct: number
+  desvio_pct: number
+  valor_medido: string
+  valor_total: string
+}
+
+export interface RelatorioMedicaoOut {
+  versao_id: number
+  ultima_medicao_id: number | null
+  periodo_fim: string | null
+  grupos: RelatorioMedicaoGrupo[]
+}
+
+export interface ComparativoItem {
+  status: 'novo' | 'removido' | 'alterado' | 'igual'
+  grupo_nome: string
+  descricao: string
+  unidade: string
+  v1_preco_unit: string | null
+  v2_preco_unit: string | null
+  v1_quantidade: string | null
+  v2_quantidade: string | null
+  v1_total: string | null
+  v2_total: string | null
+  delta_total: string
+}
+
+export interface ComparativoOut {
+  obra_id: number
+  v1_id: number
+  v2_id: number
+  v1_nome: string
+  v2_nome: string
+  v1_total: string
+  v2_total: string
+  delta_total: string
+  delta_pct: number
+  qtd_novos: number
+  qtd_removidos: number
+  qtd_alterados: number
+  itens: ComparativoItem[]
+}
