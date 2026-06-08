@@ -1,147 +1,92 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { getObras, getVersoes } from '@/api/obras'
-import { downloadPropostaPdf } from '@/api/proposta'
-import { downloadCurvaAbcExcel } from '@/api/curvaAbc'
 import { toast } from '@/hooks/useToast'
 import type { Obra, Versao } from '@/types'
+import CurvaAbcTab from '@/components/relatorios/CurvaAbcTab'
+import MedicoesTab from '@/components/relatorios/MedicoesTab'
+import ComparativoTab from '@/components/relatorios/ComparativoTab'
 
-interface ObraComVersao {
-  obra: Obra
-  versao: Versao
-}
+type Tab = 'curva-abc' | 'medicoes' | 'comparativo'
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'curva-abc', label: 'Curva ABC' },
+  { id: 'medicoes', label: 'Medições' },
+  { id: 'comparativo', label: 'Comparativo de Versões' },
+]
 
 export default function RelatoriosPage() {
-  const [items, setItems] = useState<ObraComVersao[]>([])
-  const [loading, setLoading] = useState(true)
-  const [downloading, setDownloading] = useState<Record<string, boolean>>({})
+  const [tab, setTab] = useState<Tab>('curva-abc')
+  const [obras, setObras] = useState<Obra[]>([])
+  const [obraId, setObraId] = useState<number | null>(null)
+  const [versaoAtiva, setVersaoAtiva] = useState<Versao | null>(null)
+  const [loadingObras, setLoadingObras] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const obras = await getObras()
-        const settled = await Promise.allSettled(
-          obras.map(async obra => {
-            const versoes = await getVersoes(obra.id)
-            const ativa = [...versoes]
-              .reverse()
-              .find(v => !v.bloqueada && v.deletada_em === null)
-            return ativa ? { obra, versao: ativa } : null
-          })
-        )
-        const results = settled
-          .filter((r): r is PromiseFulfilledResult<ObraComVersao | null> => r.status === 'fulfilled')
-          .map(r => r.value)
-        setItems(results.filter((r): r is ObraComVersao => r !== null))
-      } catch {
-        toast('Erro ao carregar obras', 'error')
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+    getObras()
+      .then(os => {
+        setObras(os)
+        if (os.length > 0) setObraId(os[0].id)
+      })
+      .catch(() => toast('Erro ao carregar obras', 'error'))
+      .finally(() => setLoadingObras(false))
   }, [])
 
-  async function handleDownload(
-    key: string,
-    fn: () => Promise<void>,
-    label: string,
-    notFoundMessage?: string,
-  ) {
-    setDownloading(prev => ({ ...prev, [key]: true }))
-    try {
-      await fn()
-    } catch (e: any) {
-      if (notFoundMessage && e?.response?.status === 404) {
-        toast(notFoundMessage, 'error')
-      } else {
-        toast(`Erro ao baixar ${label}`, 'error')
-      }
-    } finally {
-      setDownloading(prev => ({ ...prev, [key]: false }))
-    }
-  }
+  useEffect(() => {
+    if (!obraId) { setVersaoAtiva(null); return }
+    getVersoes(obraId).then(vs => {
+      const ativa = vs.find(v => !v.bloqueada && v.deletada_em === null) ?? null
+      setVersaoAtiva(ativa)
+    }).catch(() => setVersaoAtiva(null))
+  }, [obraId])
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-2xl mx-auto space-y-4">
-        <h1 className="text-xl font-bold text-gray-900 mb-4">Relatórios</h1>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-3" />
-            <div className="flex gap-3">
-              <div className="h-8 bg-gray-200 rounded w-32" />
-              <div className="h-8 bg-gray-200 rounded w-36" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
+  const obraAtual = obras.find(o => o.id === obraId) ?? null
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-gray-900 mb-4">Relatórios</h1>
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
 
-      {items.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhuma obra com versão ativa encontrada.</p>
+        {!loadingObras && obras.length > 0 && (
+          <select
+            value={obraId ?? ''}
+            onChange={e => setObraId(Number(e.target.value))}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-xs"
+          >
+            {obras.map(o => (
+              <option key={o.id} value={o.id}>{o.nome}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === t.id
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Conteúdo */}
+      {loadingObras ? (
+        <p className="text-gray-400 text-sm">Carregando obras…</p>
+      ) : obras.length === 0 ? (
+        <p className="text-gray-400 text-sm py-8 text-center">Nenhuma obra cadastrada.</p>
       ) : (
-        <div className="space-y-4">
-          {items.map(({ obra, versao }) => {
-            const pdfKey = `pdf-${versao.id}`
-            const xlsxKey = `xlsx-${versao.id}`
-            return (
-              <div key={obra.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-gray-900">{obra.nome}</h2>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                    Versão {versao.numero}
-                  </span>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() =>
-                      handleDownload(
-                        pdfKey,
-                        () => downloadPropostaPdf(versao.id),
-                        'proposta PDF',
-                        'Proposta não configurada. Configure em Obras antes de exportar.',
-                      )
-                    }
-                    disabled={downloading[pdfKey]}
-                    aria-label={downloading[pdfKey] ? 'Baixando proposta PDF…' : 'Baixar PDF Proposta'}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-700 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {downloading[pdfKey] ? (
-                      <>
-                        <span className="inline-block w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                        Baixando…
-                      </>
-                    ) : (
-                      '↓ PDF Proposta'
-                    )}
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleDownload(xlsxKey, () => downloadCurvaAbcExcel(versao.id), 'Curva ABC')
-                    }
-                    disabled={downloading[xlsxKey]}
-                    aria-label={downloading[xlsxKey] ? 'Baixando Curva ABC…' : 'Baixar XLSX Curva ABC'}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-700 hover:border-green-400 hover:text-green-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {downloading[xlsxKey] ? (
-                      <>
-                        <span className="inline-block w-3.5 h-3.5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                        Baixando…
-                      </>
-                    ) : (
-                      '↓ XLSX Curva ABC'
-                    )}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <>
+          {tab === 'curva-abc' && <CurvaAbcTab versao={versaoAtiva} />}
+          {tab === 'medicoes' && <MedicoesTab versao={versaoAtiva} />}
+          {tab === 'comparativo' && <ComparativoTab obra={obraAtual} />}
+        </>
       )}
     </div>
   )
