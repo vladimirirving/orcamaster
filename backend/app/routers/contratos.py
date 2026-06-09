@@ -66,10 +66,26 @@ def _build_contrato_out(contrato: Contrato, aditivos: list[Aditivo]) -> Contrato
         if a.nova_data_fim is not None:
             data_fim_atual = a.nova_data_fim
     set_committed_value(contrato, "aditivos", aditivos)
-    out = ContratoOut.model_validate(contrato)
-    out.valor_atual = valor_atual
-    out.data_fim_atual = data_fim_atual
-    return out
+    data = {
+        "id": contrato.id,
+        "obra_id": contrato.obra_id,
+        "numero": contrato.numero,
+        "objeto": contrato.objeto,
+        "valor_original": contrato.valor_original,
+        "valor_atual": valor_atual,
+        "data_assinatura": contrato.data_assinatura,
+        "data_inicio": contrato.data_inicio,
+        "data_fim": contrato.data_fim,
+        "data_fim_atual": data_fim_atual,
+        "contratante_nome": contrato.contratante_nome,
+        "contratante_cnpj": contrato.contratante_cnpj,
+        "contratado_nome": contrato.contratado_nome,
+        "contratado_cnpj": contrato.contratado_cnpj,
+        "arquivo_path": contrato.arquivo_path,
+        "criado_em": contrato.criado_em,
+        "aditivos": aditivos,
+    }
+    return ContratoOut.model_validate(data)
 
 
 @router.get("/obras/{obra_id}/contratos", response_model=List[ContratoOut])
