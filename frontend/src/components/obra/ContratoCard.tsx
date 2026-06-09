@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import {
-  deleteContrato, uploadContratoFile, downloadContratoUrl,
-  deleteAditivo, uploadAditivoFile, downloadAditivoUrl,
+  deleteContrato, uploadContratoFile, downloadContratoFile,
+  deleteAditivo, uploadAditivoFile, downloadAditivoFile,
 } from '@/api/contratos'
 import { toast } from '@/hooks/useToast'
 import { fmtBRL } from '@/lib/utils'
@@ -19,7 +19,7 @@ interface Props {
 function statusBadge(dataFimAtual: string | null) {
   if (!dataFimAtual) return null
   const hoje = new Date()
-  const fim = new Date(dataFimAtual)
+  const fim = new Date(dataFimAtual + 'T00:00:00')
   const diff = (fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)
   if (diff < 0) return <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Vencido</span>
   if (diff <= 30) return <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">Vence em breve</span>
@@ -171,15 +171,13 @@ export default function ContratoCard({ contrato, obraId, onUpdate, onDelete }: P
                         )}
                         {a.nova_data_fim && <span className="text-gray-500">→ {a.nova_data_fim}</span>}
                         {a.arquivo_path && (
-                          <a
-                            href={downloadAditivoUrl(a.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700"
+                          <button
+                            onClick={() => downloadAditivoFile(a.id)}
+                            className="text-blue-500 hover:text-blue-700 text-xs"
                             title="Baixar PDF"
                           >
                             PDF
-                          </a>
+                          </button>
                         )}
                       </div>
                       {a.justificativa && <p className="text-xs text-gray-400 mt-0.5 truncate">{a.justificativa}</p>}
@@ -242,14 +240,12 @@ export default function ContratoCard({ contrato, obraId, onUpdate, onDelete }: P
               {contrato.arquivo_path ? 'Substituir PDF' : 'Anexar PDF'}
             </button>
             {contrato.arquivo_path && (
-              <a
-                href={downloadContratoUrl(contrato.id)}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => downloadContratoFile(contrato.id)}
                 className="flex items-center gap-1.5 text-xs border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
               >
                 Baixar PDF
-              </a>
+              </button>
             )}
             <button
               onClick={() => setAditivoModal({ open: true })}

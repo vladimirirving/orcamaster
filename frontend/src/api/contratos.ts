@@ -41,8 +41,15 @@ export const uploadContratoFile = (id: number, file: File) => {
   }).then(r => r.data)
 }
 
-export const downloadContratoUrl = (id: number) =>
-  `${api.defaults.baseURL}/contratos/${id}/download`
+export const downloadContratoFile = async (id: number) => {
+  const resp = await api.get(`/contratos/${id}/download`, { responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `contrato-${id}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export const createAditivo = (contratoId: number, data: {
   tipo: 'valor' | 'prazo' | 'valor_prazo'
@@ -73,5 +80,12 @@ export const uploadAditivoFile = (id: number, file: File) => {
   }).then(r => r.data)
 }
 
-export const downloadAditivoUrl = (id: number) =>
-  `${api.defaults.baseURL}/aditivos/${id}/download`
+export const downloadAditivoFile = async (id: number) => {
+  const resp = await api.get(`/aditivos/${id}/download`, { responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `aditivo-${id}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}

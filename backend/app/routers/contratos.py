@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import set_committed_value
 from app.config import settings
@@ -96,14 +97,13 @@ async def list_contratos(
 ):
     await _get_obra(obra_id, current_user, db)
     result = await db.execute(
-        select(Contrato).where(Contrato.obra_id == obra_id).order_by(Contrato.id)
+        select(Contrato)
+        .where(Contrato.obra_id == obra_id)
+        .order_by(Contrato.id)
+        .options(selectinload(Contrato.aditivos))
     )
     contratos = result.scalars().all()
-    out = []
-    for c in contratos:
-        ads_r = await db.execute(select(Aditivo).where(Aditivo.contrato_id == c.id).order_by(Aditivo.id))
-        out.append(_build_contrato_out(c, list(ads_r.scalars().all())))
-    return out
+    return [_build_contrato_out(c, sorted(c.aditivos, key=lambda x: x.id)) for c in contratos]
 
 
 @router.post("/obras/{obra_id}/contratos", response_model=ContratoOut, status_code=status.HTTP_201_CREATED)
@@ -144,17 +144,24 @@ async def delete_contrato(
     db: AsyncSession = Depends(get_db),
 ):
     contrato = await _get_contrato(contrato_id, current_user, db)
-    for prefix, cid in [("c", contrato.id)]:
-        path = os.path.join(settings.contratos_dir, f"{prefix}{cid}.pdf")
-        if os.path.exists(path):
-            os.remove(path)
+    # Collect file paths before commit so cascade doesn't lose aditivo IDs
+    paths_to_delete = []
+    contrato_pdf = os.path.join(settings.contratos_dir, f"c{contrato.id}.pdf")
+    if os.path.exists(contrato_pdf):
+        paths_to_delete.append(contrato_pdf)
     ads_r = await db.execute(select(Aditivo).where(Aditivo.contrato_id == contrato_id))
     for a in ads_r.scalars().all():
         path = os.path.join(settings.contratos_dir, f"a{a.id}.pdf")
         if os.path.exists(path):
-            os.remove(path)
+            paths_to_delete.append(path)
+    # Commit DB first — only delete files if DB succeeds
     await db.delete(contrato)
     await db.commit()
+    for path in paths_to_delete:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 @router.post("/contratos/{contrato_id}/upload", response_model=ContratoOut)
@@ -176,7 +183,12 @@ async def upload_contrato_pdf(
     with open(filepath, "wb") as f:
         f.write(content)
     contrato.arquivo_path = filename
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise
     await db.refresh(contrato)
     ads_r = await db.execute(select(Aditivo).where(Aditivo.contrato_id == contrato_id).order_by(Aditivo.id))
     return _build_contrato_out(contrato, list(ads_r.scalars().all()))
@@ -234,12 +246,15 @@ async def delete_aditivo(
     db: AsyncSession = Depends(get_db),
 ):
     aditivo = await _get_aditivo(aditivo_id, current_user, db)
-    if aditivo.arquivo_path:
-        path = os.path.join(settings.contratos_dir, aditivo.arquivo_path)
-        if os.path.exists(path):
-            os.remove(path)
+    pdf_path = os.path.join(settings.contratos_dir, aditivo.arquivo_path) if aditivo.arquivo_path else None
+    # Commit DB first
     await db.delete(aditivo)
     await db.commit()
+    if pdf_path and os.path.exists(pdf_path):
+        try:
+            os.remove(pdf_path)
+        except OSError:
+            pass
 
 
 @router.post("/aditivos/{aditivo_id}/upload", response_model=AditivoOut)
@@ -261,7 +276,12 @@ async def upload_aditivo_pdf(
     with open(filepath, "wb") as f:
         f.write(content)
     aditivo.arquivo_path = filename
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise
     await db.refresh(aditivo)
     return aditivo
 

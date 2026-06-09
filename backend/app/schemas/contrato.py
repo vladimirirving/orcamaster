@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class AditivoCreate(BaseModel):
@@ -11,6 +11,14 @@ class AditivoCreate(BaseModel):
     nova_data_fim: Optional[date] = None
     justificativa: Optional[str] = None
     data_assinatura: Optional[date] = None
+
+    @model_validator(mode='after')
+    def validate_tipo_fields(self) -> 'AditivoCreate':
+        if self.tipo in ('valor', 'valor_prazo') and self.delta_valor is None:
+            raise ValueError("delta_valor é obrigatório para tipo 'valor' e 'valor_prazo'")
+        if self.tipo in ('prazo', 'valor_prazo') and self.nova_data_fim is None:
+            raise ValueError("nova_data_fim é obrigatório para tipo 'prazo' e 'valor_prazo'")
+        return self
 
 
 class AditivoUpdate(BaseModel):
