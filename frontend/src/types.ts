@@ -128,7 +128,7 @@ export interface GrupoDistribuicao {
 }
 
 export interface DistribuicaoGruposOut {
-  versao_id: number
+  versao_id: number | null
   total_versao: string
   grupos: GrupoDistribuicao[]
 }

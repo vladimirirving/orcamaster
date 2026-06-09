@@ -42,6 +42,6 @@ class GrupoDistribuicao(BaseModel):
 
 
 class DistribuicaoGruposOut(BaseModel):
-    versao_id: int
+    versao_id: Optional[int]
     total_versao: Decimal
     grupos: List[GrupoDistribuicao]

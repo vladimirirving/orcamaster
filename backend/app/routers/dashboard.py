@@ -239,9 +239,8 @@ async def get_distribuicao_grupos(
 
     versao = await _get_versao_ativa_da_obra(obra_id, db)
     if versao is None or not versao.total_sem_bdi:
-        versao_id_out = versao.id if versao else 0
         return DistribuicaoGruposOut(
-            versao_id=versao_id_out,
+            versao_id=None,
             total_versao=Decimal("0"),
             grupos=[],
         )

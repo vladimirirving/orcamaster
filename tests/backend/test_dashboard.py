@@ -509,3 +509,39 @@ async def test_distribuicao_grupos_tenant_isolation(
 
     r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=headers_b)
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_distribuicao_grupos_com_subgrupos(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa, db_session
+):
+    """Items in subgroups are attributed to their root group."""
+    grupo_raiz = Grupo(versao_id=versao_ativa.id, nome="Pavimentação", ordem=0, pai_id=None)
+    db_session.add(grupo_raiz)
+    await db_session.flush()
+
+    subgrupo = Grupo(versao_id=versao_ativa.id, nome="Sub-pavimentação", ordem=0, pai_id=grupo_raiz.id)
+    db_session.add(subgrupo)
+    await db_session.flush()
+
+    # Item directly in root group: total = 1 * 300 = 300
+    db_session.add(Item(
+        grupo_id=grupo_raiz.id, quantidade=Decimal("1"), unidade="T",
+        preco_unitario_sem_bdi=Decimal("300"), preco_unitario_com_bdi=Decimal("330"),
+    ))
+    # Item in subgroup: total = 1 * 700 = 700
+    db_session.add(Item(
+        grupo_id=subgrupo.id, quantidade=Decimal("1"), unidade="T",
+        preco_unitario_sem_bdi=Decimal("700"), preco_unitario_com_bdi=Decimal("770"),
+    ))
+    await db_session.flush()
+    versao_ativa.total_sem_bdi = Decimal("1000")
+    await db_session.flush()
+
+    r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=auth_headers)
+    assert r.status_code == 200
+    data = r.json()
+    # Only root group should appear, with total = 300 + 700 = 1000
+    assert len(data["grupos"]) == 1
+    assert data["grupos"][0]["grupo_nome"] == "Pavimentação"
+    assert pytest.approx(data["grupos"][0]["participacao_pct"], abs=0.1) == 100.0

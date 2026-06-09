@@ -48,6 +48,7 @@ export default function EmpresaView({ items, onSelectObra }: Props) {
         <div className="bg-green-50 rounded-xl p-4">
           <div className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Total com BDI</div>
           <div className="text-2xl font-bold text-green-700">{fmtBRL(String(totalComBdi.toFixed(2)))}</div>
+          <div className="text-xs text-green-400 mt-1">em elaboração</div>
         </div>
         <div className={`rounded-xl p-4 ${qtdAlertas > 0 ? 'bg-amber-50' : 'bg-gray-50'}`}>
           <div className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Alertas</div>
