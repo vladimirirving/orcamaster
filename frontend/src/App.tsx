@@ -6,7 +6,7 @@ import ObrasPage from '@/pages/ObrasPage'
 import ObraDetailPage from '@/pages/ObraDetailPage'
 import PlanilhaPage from '@/pages/PlanilhaPage'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
-import TopBar from '@/components/layout/TopBar'
+import Sidebar from '@/components/layout/Sidebar'
 import Toaster from '@/components/layout/Toaster'
 import EmpresaSettingsPage from '@/pages/EmpresaSettingsPage'
 import RelatoriosPage from '@/pages/RelatoriosPage'
@@ -19,8 +19,8 @@ import DiarioObraPage from '@/pages/DiarioObraPage'
 
 function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-      <TopBar />
+    <div className="min-h-screen flex bg-gray-100">
+      <Sidebar />
       <main className="flex-1 overflow-auto">{children}</main>
       <Toaster />
     </div>
