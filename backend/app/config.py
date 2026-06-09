@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     pacotes_dir: str = "/tmp/pacotes"
     diario_dir: str = "/tmp/diario"
+    contratos_dir: str = "/tmp/contratos"
 
 
 settings = Settings()
