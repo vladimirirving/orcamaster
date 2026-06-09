@@ -238,7 +238,7 @@ async def get_distribuicao_grupos(
         raise HTTPException(status_code=404, detail="Obra não encontrada")
 
     versao = await _get_versao_ativa_da_obra(obra_id, db)
-    if versao is None or versao.total_sem_bdi == 0:
+    if versao is None or not versao.total_sem_bdi:
         versao_id_out = versao.id if versao else 0
         return DistribuicaoGruposOut(
             versao_id=versao_id_out,
@@ -251,8 +251,6 @@ async def get_distribuicao_grupos(
         select(Grupo).where(Grupo.versao_id == versao.id, Grupo.pai_id.is_(None))
     )
     grupos_raiz = grupos_r.scalars().all()
-    grupos_raiz_ids = {g.id for g in grupos_raiz}
-
     todos_grupos_r = await db.execute(
         select(Grupo).where(Grupo.versao_id == versao.id)
     )
@@ -266,15 +264,27 @@ async def get_distribuicao_grupos(
     )
     todos_itens = todos_itens_r.scalars().all()
 
+    def _find_raiz(grupo_id: int) -> int | None:
+        visited: set[int] = set()
+        gid = grupo_id
+        while gid is not None:
+            if gid in visited:
+                return None  # cycle guard
+            visited.add(gid)
+            g = todos_grupos.get(gid)
+            if g is None:
+                return None
+            if g.pai_id is None:
+                return g.id
+            gid = g.pai_id
+        return None
+
     # Agregar total por grupo raiz
     totais: dict[int, Decimal] = {g.id: Decimal("0") for g in grupos_raiz}
     for item in todos_itens:
-        g = todos_grupos.get(item.grupo_id)
-        if g is None:
-            continue
-        raiz_id = g.id if g.pai_id is None else (g.pai_id if g.pai_id in grupos_raiz_ids else None)
-        if raiz_id is not None:
-            totais[raiz_id] = totais.get(raiz_id, Decimal("0")) + (item.total or Decimal("0"))
+        raiz_id = _find_raiz(item.grupo_id)
+        if raiz_id is not None and raiz_id in totais:
+            totais[raiz_id] += (item.total or Decimal("0"))
 
     total_versao = versao.total_sem_bdi
     resultado = []

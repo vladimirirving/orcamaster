@@ -363,7 +363,6 @@ async def test_curva_s_dois_medicoes_sequenciais(
 
 
 # --- Novos testes Módulo 21 ---
-from app.models.bdi import BDI
 
 
 @pytest.mark.asyncio
@@ -444,7 +443,6 @@ async def test_distribuicao_grupos_basico(
     composicao_sinapi, db_session
 ):
     """Participação % correta, dois grupos."""
-    from decimal import Decimal as D2
     grupo_a = Grupo(versao_id=versao_ativa.id, nome="Pavimentação", ordem=0)
     grupo_b = Grupo(versao_id=versao_ativa.id, nome="Terraplenagem", ordem=1)
     db_session.add_all([grupo_a, grupo_b])
@@ -453,15 +451,15 @@ async def test_distribuicao_grupos_basico(
     # grupo_a: 3 itens de 100 cada = 300; grupo_b: 1 item de 700 = 700; total=1000
     for _ in range(3):
         db_session.add(Item(
-            grupo_id=grupo_a.id, quantidade=D2("1"), unidade="UN",
-            preco_unitario_sem_bdi=D2("100"), preco_unitario_com_bdi=D2("110"),
+            grupo_id=grupo_a.id, quantidade=Decimal("1"), unidade="UN",
+            preco_unitario_sem_bdi=Decimal("100"), preco_unitario_com_bdi=Decimal("110"),
         ))
     db_session.add(Item(
-        grupo_id=grupo_b.id, quantidade=D2("1"), unidade="UN",
-        preco_unitario_sem_bdi=D2("700"), preco_unitario_com_bdi=D2("770"),
+        grupo_id=grupo_b.id, quantidade=Decimal("1"), unidade="UN",
+        preco_unitario_sem_bdi=Decimal("700"), preco_unitario_com_bdi=Decimal("770"),
     ))
     await db_session.flush()
-    versao_ativa.total_sem_bdi = D2("1000")
+    versao_ativa.total_sem_bdi = Decimal("1000")
     await db_session.flush()
 
     r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=auth_headers)
