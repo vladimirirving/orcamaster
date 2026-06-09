@@ -14,6 +14,7 @@ import CurvaAbc from '@/components/obra/CurvaAbc'
 import PropostaTab from '@/components/obra/PropostaTab'
 import PacoteTab from '@/components/obra/PacoteTab'
 import AgenteTab from '@/components/obra/AgenteTab'
+import ContratosTab from '@/components/obra/ContratosTab'
 
 export default function ObraDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -23,7 +24,7 @@ export default function ObraDetailPage() {
   const [versoes, setVersoes] = useState<Versao[]>([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
-  const [tab, setTab] = useState<'versoes' | 'dashboard' | 'curva-abc' | 'proposta' | 'pacote' | 'agente'>('versoes')
+  const [tab, setTab] = useState<'versoes' | 'dashboard' | 'curva-abc' | 'proposta' | 'pacote' | 'agente' | 'contratos'>('versoes')
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [clienteSelectOpen, setClienteSelectOpen] = useState(false)
   const [clienteSearch, setClienteSearch] = useState('')
@@ -221,7 +222,7 @@ export default function ObraDetailPage() {
       )}
 
       <div className="flex gap-0 border-b border-gray-200 mb-6 mt-4">
-        {(['versoes', 'dashboard', 'curva-abc', 'proposta', 'pacote', 'agente'] as const).map(t => (
+        {(['versoes', 'dashboard', 'curva-abc', 'proposta', 'pacote', 'agente', 'contratos'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -236,7 +237,8 @@ export default function ObraDetailPage() {
               : t === 'curva-abc' ? 'Curva ABC'
               : t === 'proposta' ? 'Proposta'
               : t === 'pacote' ? 'Pacote'
-              : 'Agente IA'}
+              : t === 'agente' ? 'Agente IA'
+              : 'Contratos'}
           </button>
         ))}
       </div>
@@ -346,6 +348,8 @@ export default function ObraDetailPage() {
           ? <AgenteTab versaoId={versaoAtiva.id} obraId={obraId} />
           : <div className="p-6 text-center text-gray-400 text-sm py-12">Nenhuma versão ativa para esta obra</div>
       )}
+
+      {tab === 'contratos' && <ContratosTab obraId={obraId} />}
 
       {editModalOpen && obra && (
         <ObraEditModal
