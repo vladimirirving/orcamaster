@@ -4,6 +4,9 @@ export interface Obra {
   tipo_obra: string
   estado: string
   data_criacao: string
+  numero_processo: string | null
+  data_prazo: string | null
+  responsavel_id: number | null
   cliente: string | null
   cliente_id: number | null
   cliente_nome: string | null
