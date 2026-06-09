@@ -26,6 +26,13 @@ function statusBadge(dataFimAtual: string | null) {
   return <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Vigente</span>
 }
 
+function recomputeContrato(contrato: Contrato, aditivos: Aditivo[]): Contrato {
+  const valor_atual = aditivos.reduce((s, a) => s + (a.delta_valor ?? 0), contrato.valor_original)
+  const sorted = [...aditivos].sort((a, b) => a.id - b.id)
+  const data_fim_atual = sorted.reduce<string | null>((d, a) => a.nova_data_fim ?? d, contrato.data_fim)
+  return { ...contrato, aditivos, valor_atual, data_fim_atual }
+}
+
 function tipoLabel(tipo: string) {
   return tipo === 'valor' ? 'Valor' : tipo === 'prazo' ? 'Prazo' : 'Valor + Prazo'
 }
@@ -62,7 +69,8 @@ export default function ContratoCard({ contrato, obraId, onUpdate, onDelete }: P
     if (!confirm('Remover este aditivo?')) return
     try {
       await deleteAditivo(aditivoId)
-      onUpdate({ ...contrato, aditivos: contrato.aditivos.filter(a => a.id !== aditivoId) })
+      const aditivos = contrato.aditivos.filter(a => a.id !== aditivoId)
+      onUpdate(recomputeContrato(contrato, aditivos))
       toast('Aditivo removido')
     } catch {
       toast('Erro ao remover aditivo', 'error')
@@ -285,7 +293,7 @@ export default function ContratoCard({ contrato, obraId, onUpdate, onDelete }: P
             const aditivos = aditivoModal.aditivo
               ? contrato.aditivos.map(x => x.id === a.id ? a : x)
               : [...contrato.aditivos, a]
-            onUpdate({ ...contrato, aditivos })
+            onUpdate(recomputeContrato(contrato, aditivos))
             setAditivoModal({ open: false })
           }}
         />
