@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -12,7 +13,7 @@ from app.models.medicao import Medicao
 from app.models.obra import Obra
 from app.models.usuario import Usuario
 from app.models.versao import Versao
-from app.schemas.dashboard import CurvaSPonto, DashboardResumoItem, ObraDashboardData
+from app.schemas.dashboard import CurvaSPonto, DashboardResumoItem, ObraDashboardData, GrupoDistribuicao, DistribuicaoGruposOut
 
 router = APIRouter(tags=["dashboard"])
 
@@ -147,7 +148,8 @@ async def get_dashboard(
         if versao is None:
             resultado.append(DashboardResumoItem(
                 obra_id=obra.id, obra_nome=obra.nome,
-                versao_id=None, total_sem_bdi=None,
+                versao_id=None, total_sem_bdi=None, total_com_bdi=None,
+                estado=obra.estado, tem_alertas=False,
                 planejado_pct_hoje=None, realizado_pct=None,
                 desvio=None, status="sem_dados",
             ))
@@ -155,10 +157,13 @@ async def get_dashboard(
         itens = await _get_itens(versao.id, db)
         medicoes = await _get_medicoes(versao.id, db)
         calc = _calc(versao, itens, medicoes)
+        tem_alertas = any(i.requer_revisao for i in itens)
         if calc is None:
             resultado.append(DashboardResumoItem(
                 obra_id=obra.id, obra_nome=obra.nome,
                 versao_id=versao.id, total_sem_bdi=str(versao.total_sem_bdi),
+                total_com_bdi=str(versao.total_com_bdi),
+                estado=obra.estado, tem_alertas=tem_alertas,
                 planejado_pct_hoje=None, realizado_pct=None,
                 desvio=None, status="sem_dados",
             ))
@@ -166,6 +171,8 @@ async def get_dashboard(
             resultado.append(DashboardResumoItem(
                 obra_id=obra.id, obra_nome=obra.nome,
                 versao_id=versao.id, total_sem_bdi=str(versao.total_sem_bdi),
+                total_com_bdi=str(versao.total_com_bdi),
+                estado=obra.estado, tem_alertas=tem_alertas,
                 planejado_pct_hoje=calc["planejado_pct_hoje"],
                 realizado_pct=calc["realizado_pct"],
                 desvio=calc["desvio"],
@@ -189,7 +196,7 @@ async def get_obra_dashboard(
     versao = await _get_versao_ativa_da_obra(obra_id, db)
     if versao is None:
         return ObraDashboardData(
-            versao_id=None, total_sem_bdi=None,
+            versao_id=None, total_sem_bdi=None, total_com_bdi=None,
             planejado_pct_hoje=None, realizado_pct=None,
             desvio=None, status="sem_dados", curva_s=[],
         )
@@ -201,6 +208,7 @@ async def get_obra_dashboard(
     if calc is None:
         return ObraDashboardData(
             versao_id=versao.id, total_sem_bdi=str(versao.total_sem_bdi),
+            total_com_bdi=str(versao.total_com_bdi),
             planejado_pct_hoje=None, realizado_pct=None,
             desvio=None, status="sem_dados", curva_s=[],
         )
@@ -208,9 +216,80 @@ async def get_obra_dashboard(
     return ObraDashboardData(
         versao_id=versao.id,
         total_sem_bdi=str(versao.total_sem_bdi),
+        total_com_bdi=str(versao.total_com_bdi),
         planejado_pct_hoje=calc["planejado_pct_hoje"],
         realizado_pct=calc["realizado_pct"],
         desvio=calc["desvio"],
         status=calc["status"],
         curva_s=calc["curva_s"],
+    )
+
+
+@router.get("/obras/{obra_id}/distribuicao-grupos", response_model=DistribuicaoGruposOut)
+async def get_distribuicao_grupos(
+    obra_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    obra_result = await db.execute(
+        select(Obra).where(Obra.id == obra_id, Obra.empresa_id == current_user.empresa_id)
+    )
+    if obra_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Obra não encontrada")
+
+    versao = await _get_versao_ativa_da_obra(obra_id, db)
+    if versao is None or versao.total_sem_bdi == 0:
+        versao_id_out = versao.id if versao else 0
+        return DistribuicaoGruposOut(
+            versao_id=versao_id_out,
+            total_versao=Decimal("0"),
+            grupos=[],
+        )
+
+    # Grupos raiz e todos os grupos da versão
+    grupos_r = await db.execute(
+        select(Grupo).where(Grupo.versao_id == versao.id, Grupo.pai_id.is_(None))
+    )
+    grupos_raiz = grupos_r.scalars().all()
+    grupos_raiz_ids = {g.id for g in grupos_raiz}
+
+    todos_grupos_r = await db.execute(
+        select(Grupo).where(Grupo.versao_id == versao.id)
+    )
+    todos_grupos = {g.id: g for g in todos_grupos_r.scalars().all()}
+
+    # Todos os itens da versão
+    todos_itens_r = await db.execute(
+        select(Item)
+        .join(Grupo, Item.grupo_id == Grupo.id)
+        .where(Grupo.versao_id == versao.id)
+    )
+    todos_itens = todos_itens_r.scalars().all()
+
+    # Agregar total por grupo raiz
+    totais: dict[int, Decimal] = {g.id: Decimal("0") for g in grupos_raiz}
+    for item in todos_itens:
+        g = todos_grupos.get(item.grupo_id)
+        if g is None:
+            continue
+        raiz_id = g.id if g.pai_id is None else (g.pai_id if g.pai_id in grupos_raiz_ids else None)
+        if raiz_id is not None:
+            totais[raiz_id] = totais.get(raiz_id, Decimal("0")) + (item.total or Decimal("0"))
+
+    total_versao = versao.total_sem_bdi
+    resultado = []
+    for grupo in sorted(grupos_raiz, key=lambda g: totais.get(g.id, Decimal("0")), reverse=True):
+        grupo_total = totais.get(grupo.id, Decimal("0"))
+        pct = float(grupo_total / total_versao * 100) if total_versao else 0.0
+        resultado.append(GrupoDistribuicao(
+            grupo_id=grupo.id,
+            grupo_nome=grupo.nome,
+            total=grupo_total,
+            participacao_pct=round(pct, 2),
+        ))
+
+    return DistribuicaoGruposOut(
+        versao_id=versao.id,
+        total_versao=total_versao,
+        grupos=resultado,
     )
