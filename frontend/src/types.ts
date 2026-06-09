@@ -94,6 +94,9 @@ export interface DashboardResumoItem {
   obra_nome: string
   versao_id: number | null
   total_sem_bdi: string | null
+  total_com_bdi: string | null        // novo
+  estado: string                       // novo
+  tem_alertas: boolean                 // novo
   planejado_pct_hoje: number | null
   realizado_pct: number | null
   desvio: number | null
@@ -109,11 +112,25 @@ export interface CurvaSPonto {
 export interface ObraDashboardData {
   versao_id: number | null
   total_sem_bdi: string | null
+  total_com_bdi: string | null        // novo
   planejado_pct_hoje: number | null
   realizado_pct: number | null
   desvio: number | null
   status: string
   curva_s: CurvaSPonto[]
+}
+
+export interface GrupoDistribuicao {
+  grupo_id: number
+  grupo_nome: string
+  total: string
+  participacao_pct: number
+}
+
+export interface DistribuicaoGruposOut {
+  versao_id: number
+  total_versao: string
+  grupos: GrupoDistribuicao[]
 }
 
 export interface CurvaAbcItem {
