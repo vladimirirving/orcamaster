@@ -310,3 +310,36 @@ export interface ComparativoOut {
   qtd_alterados: number
   itens: ComparativoItem[]
 }
+
+export interface Aditivo {
+  id: number
+  contrato_id: number
+  numero: string | null
+  tipo: 'valor' | 'prazo' | 'valor_prazo'
+  delta_valor: number | null
+  nova_data_fim: string | null
+  justificativa: string | null
+  data_assinatura: string | null
+  arquivo_path: string | null
+  criado_em: string
+}
+
+export interface Contrato {
+  id: number
+  obra_id: number
+  numero: string | null
+  objeto: string
+  valor_original: number
+  valor_atual: number
+  data_assinatura: string | null
+  data_inicio: string | null
+  data_fim: string | null
+  data_fim_atual: string | null
+  contratante_nome: string | null
+  contratante_cnpj: string | null
+  contratado_nome: string | null
+  contratado_cnpj: string | null
+  arquivo_path: string | null
+  criado_em: string
+  aditivos: Aditivo[]
+}
