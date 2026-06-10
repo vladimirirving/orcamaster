@@ -1,16 +1,14 @@
 # backend/app/routers/insumo_item.py
 from datetime import date
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user
 from app.models.insumo_item import InsumoItem
 from app.models.usuario import Usuario
-from app.schemas.insumo_item import (
-    InsumoItemCreate, InsumoItemListOut, InsumoItemOut, InsumoItemUpdate,
-)
+from app.schemas.insumo_item import InsumoItemListOut, InsumoItemOut
 
 router = APIRouter(prefix="/insumos", tags=["insumos"])
 
@@ -57,7 +55,10 @@ async def list_insumos(
             ref_date = date(int(year), int(month), 1)
             stmt = stmt.where(InsumoItem.data_referencia == ref_date)
         except (ValueError, TypeError):
-            pass
+            raise HTTPException(
+                status_code=422,
+                detail="data_ref deve estar no formato YYYY-MM (ex: 2024-01)"
+            )
 
     order_col = _ORDER_COLS.get(order_by, InsumoItem.descricao)
     stmt = stmt.order_by(order_col)
