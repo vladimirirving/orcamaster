@@ -34,4 +34,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index('ix_insumo_item_empresa_id', table_name='insumo_item')
+    op.drop_index('ix_insumo_item_banco_estado_data', table_name='insumo_item')
     op.drop_table('insumo_item')
