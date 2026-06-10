@@ -16,6 +16,7 @@ from app.routers.diario import router as diario_router
 from app.routers.relatorios import router as relatorios_router
 from app.routers.contratos import router as contratos_router
 from app.routers.alertas import router as alertas_router
+from app.routers.insumo_item import router as insumo_item_router
 from app.scheduler import start_scheduler, stop_scheduler
 
 
@@ -58,3 +59,4 @@ app.include_router(diario_router)
 app.include_router(relatorios_router)
 app.include_router(contratos_router)
 app.include_router(alertas_router)
+app.include_router(insumo_item_router)
