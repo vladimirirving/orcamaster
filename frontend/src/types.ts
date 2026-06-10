@@ -353,3 +353,22 @@ export interface Alerta {
   detalhe: string | null
   link: string
 }
+
+export interface InsumoItem {
+  id: number
+  banco: string           // 'sinapi' | 'sicro' | 'propria'
+  codigo: string
+  descricao: string
+  unidade: string
+  tipo: string            // 'mao_obra' | 'material' | 'equipamento'
+  preco_nao_desonerado: string
+  preco_desonerado: string
+  estado: string | null
+  data_referencia: string // 'YYYY-MM-DD'
+  empresa_id: number | null
+}
+
+export interface InsumoItemListOut {
+  items: InsumoItem[]
+  total: number
+}
