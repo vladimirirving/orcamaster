@@ -11,7 +11,7 @@ export default defineConfig({
   },
   server: {
     proxy: Object.fromEntries(
-      ['/auth', '/usuarios', '/obras', '/versoes', '/grupos', '/itens', '/bdi', '/composicoes', '/dashboard', '/agente', '/clientes', '/fornecedores', '/contratos', '/aditivos'].map(
+      ['/auth', '/usuarios', '/obras', '/versoes', '/grupos', '/itens', '/bdi', '/composicoes', '/dashboard', '/agente', '/clientes', '/fornecedores', '/contratos', '/aditivos', '/alertas', '/relatorios', '/medicoes', '/curva-abc', '/cronograma', '/propostas', '/pacotes'].map(
         path => [path, {
           target: 'http://localhost:8000',
           bypass(req: any) {
