@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
+import openpyxl
 from sqlalchemy import Numeric, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,21 +52,49 @@ async def recalc_preco_composicao(composicao_id: int, db: AsyncSession) -> None:
         )
 
 
-async def import_composicoes_csv(
+def _parse_csv(conteudo: bytes) -> list[dict]:
+    text = conteudo.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    return [
+        {k.strip().lower(): v.strip() for k, v in row.items()}
+        for row in reader
+    ]
+
+
+def _parse_xlsx(conteudo: bytes) -> list[dict]:
+    wb = openpyxl.load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
+    try:
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True)) if ws is not None else []
+    finally:
+        wb.close()
+    if not rows:
+        return []
+    header = [str(h).strip().lower() if h is not None else "" for h in rows[0]]
+    result = []
+    for row in rows[1:]:
+        d = {key: (str(val).strip() if val is not None else "") for key, val in zip(header, row)}
+        if d.get("codigo", ""):
+            result.append(d)
+    return result
+
+
+async def import_composicoes(
     origem: str,
     conteudo: bytes,
+    filename: str,
     db: AsyncSession,
 ) -> dict:
-    """Upsert composições from CSV by (origem, codigo).
+    """Upsert composições from CSV or XLSX by (origem, codigo).
     After upserting, bulk-marks items with requer_revisao=True where preco_unitario changed.
     Returns {"criadas": int, "atualizadas": int, "itens_marcados": int}.
 
-    CSV format (UTF-8, BOM-tolerant):
-        codigo,descricao,unidade,preco_unitario[,data_referencia]
-    Decimal separator: dot or comma.
+    CSV format (UTF-8, BOM-tolerant) or XLSX first sheet:
+        codigo, descricao, unidade, preco_unitario[, data_referencia]
+    Decimal separator in CSV: dot or comma.
     """
-    text = conteudo.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text))
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "csv"
+    rows = _parse_xlsx(conteudo) if ext in ("xlsx", "xls") else _parse_csv(conteudo)
 
     result = await db.execute(
         select(Composicao).where(
@@ -78,18 +107,24 @@ async def import_composicoes_csv(
     atualizadas = 0
     changed_ids: list[int] = []
 
-    for row in reader:
+    for row in rows:
         codigo = row.get("codigo", "").strip()
         if not codigo:
             continue
         descricao = row.get("descricao", "").strip()
         unidade = row.get("unidade", "").strip()
         preco_raw = row.get("preco_unitario", "0").strip().replace(",", ".")
-        novo_preco = Decimal(preco_raw)
+        try:
+            novo_preco = Decimal(preco_raw) if preco_raw else _ZERO
+        except Exception:
+            novo_preco = _ZERO
         data_ref: Optional[date] = None
         raw_data = row.get("data_referencia", "").strip()
         if raw_data:
-            data_ref = date.fromisoformat(raw_data)
+            try:
+                data_ref = date.fromisoformat(raw_data[:10])
+            except ValueError:
+                data_ref = None
 
         if codigo in existing:
             comp = existing[codigo]

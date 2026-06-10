@@ -13,6 +13,7 @@ class ObraCreate(BaseModel):
     tipo_obra: str  # rodovia|saneamento|ponte|rede_eletrica|outro
     responsavel_id: Optional[int] = None
     data_prazo: Optional[date] = None
+    cliente_id: Optional[int] = None
 
 
 class ObraUpdate(BaseModel):
@@ -25,6 +26,7 @@ class ObraUpdate(BaseModel):
     estado: Optional[str] = None  # em_elaboracao|concluido|arquivado
     responsavel_id: Optional[int] = None
     data_prazo: Optional[date] = None
+    cliente_id: Optional[int] = None
 
 
 class ObraOut(BaseModel):
@@ -41,3 +43,5 @@ class ObraOut(BaseModel):
     responsavel_id: Optional[int] = None
     data_criacao: date
     data_prazo: Optional[date] = None
+    cliente_id: Optional[int] = None
+    cliente_nome: Optional[str] = None

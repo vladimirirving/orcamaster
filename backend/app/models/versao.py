@@ -27,3 +27,6 @@ class Versao(Base):
     bdi: Mapped[Optional["BDI"]] = relationship(back_populates="versao", uselist=False)
     medicoes: Mapped[list["Medicao"]] = relationship(back_populates="versao")
     pacote_jobs: Mapped[list["PacoteJob"]] = relationship(back_populates="versao")
+    proposta_config: Mapped[Optional["PropostaConfig"]] = relationship(
+        back_populates="versao", uselist=False
+    )

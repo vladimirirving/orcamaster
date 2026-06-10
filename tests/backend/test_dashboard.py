@@ -360,3 +360,188 @@ async def test_curva_s_dois_medicoes_sequenciais(
     assert fev["realizado_acum"] == pytest.approx(55.0, abs=0.1)
     # realizado_pct is from latest medição
     assert data["realizado_pct"] == pytest.approx(55.0, abs=0.1)
+
+
+# --- Novos testes Módulo 21 ---
+
+
+@pytest.mark.asyncio
+async def test_dashboard_inclui_estado(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa, db_session
+):
+    """Campo estado retornado corretamente."""
+    r = await client.get("/dashboard", headers=auth_headers)
+    assert r.status_code == 200
+    items = r.json()
+    assert len(items) == 1
+    assert items[0]["estado"] == "em_elaboracao"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_inclui_total_com_bdi(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa, db_session
+):
+    """Campo total_com_bdi presente quando versão ativa existe."""
+    from decimal import Decimal
+    versao_ativa.total_com_bdi = Decimal("9500.00")
+    await db_session.flush()
+
+    r = await client.get("/dashboard", headers=auth_headers)
+    assert r.status_code == 200
+    items = r.json()
+    assert items[0]["total_com_bdi"] is not None
+    assert float(items[0]["total_com_bdi"]) == pytest.approx(9500.0)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_tem_alertas_true(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa,
+    composicao_sinapi, db_session
+):
+    """tem_alertas=True quando item tem requer_revisao=True."""
+    grupo = Grupo(versao_id=versao_ativa.id, nome="G", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, quantidade=Decimal("10"), unidade="M3",
+        preco_unitario_sem_bdi=Decimal("50"), preco_unitario_com_bdi=Decimal("55"),
+        requer_revisao=True,
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    r = await client.get("/dashboard", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()[0]["tem_alertas"] is True
+
+
+@pytest.mark.asyncio
+async def test_dashboard_tem_alertas_false(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa,
+    composicao_sinapi, db_session
+):
+    """tem_alertas=False quando sem itens marcados."""
+    grupo = Grupo(versao_id=versao_ativa.id, nome="G", ordem=0)
+    db_session.add(grupo)
+    await db_session.flush()
+    item = Item(
+        grupo_id=grupo.id, quantidade=Decimal("10"), unidade="M3",
+        preco_unitario_sem_bdi=Decimal("50"), preco_unitario_com_bdi=Decimal("55"),
+        requer_revisao=False,
+    )
+    db_session.add(item)
+    await db_session.flush()
+
+    r = await client.get("/dashboard", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()[0]["tem_alertas"] is False
+
+
+@pytest.mark.asyncio
+async def test_distribuicao_grupos_basico(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa,
+    composicao_sinapi, db_session
+):
+    """Participação % correta, dois grupos."""
+    grupo_a = Grupo(versao_id=versao_ativa.id, nome="Pavimentação", ordem=0)
+    grupo_b = Grupo(versao_id=versao_ativa.id, nome="Terraplenagem", ordem=1)
+    db_session.add_all([grupo_a, grupo_b])
+    await db_session.flush()
+
+    # grupo_a: 3 itens de 100 cada = 300; grupo_b: 1 item de 700 = 700; total=1000
+    for _ in range(3):
+        db_session.add(Item(
+            grupo_id=grupo_a.id, quantidade=Decimal("1"), unidade="UN",
+            preco_unitario_sem_bdi=Decimal("100"), preco_unitario_com_bdi=Decimal("110"),
+        ))
+    db_session.add(Item(
+        grupo_id=grupo_b.id, quantidade=Decimal("1"), unidade="UN",
+        preco_unitario_sem_bdi=Decimal("700"), preco_unitario_com_bdi=Decimal("770"),
+    ))
+    await db_session.flush()
+    versao_ativa.total_sem_bdi = Decimal("1000")
+    await db_session.flush()
+
+    r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=auth_headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["versao_id"] == versao_ativa.id
+    grupos = {g["grupo_nome"]: g for g in data["grupos"]}
+    assert pytest.approx(grupos["Pavimentação"]["participacao_pct"], abs=0.1) == 30.0
+    assert pytest.approx(grupos["Terraplenagem"]["participacao_pct"], abs=0.1) == 70.0
+    total_pct = sum(g["participacao_pct"] for g in data["grupos"])
+    assert pytest.approx(total_pct, abs=0.5) == 100.0
+
+
+@pytest.mark.asyncio
+async def test_distribuicao_grupos_sem_versao_ativa(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa, db_session
+):
+    """Sem versão ativa: lista vazia."""
+    versao_ativa.bloqueada = True
+    await db_session.flush()
+
+    r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["grupos"] == []
+
+
+@pytest.mark.asyncio
+async def test_distribuicao_grupos_tenant_isolation(
+    client: AsyncClient, obra, db_session
+):
+    """Obra de outra empresa → 404."""
+    from app.models.empresa import Empresa
+    from app.models.usuario import Usuario
+    from app.services.auth_service import hash_password, create_access_token
+
+    emp_b = Empresa(nome="Emp B", cnpj="33.333.333/0001-33")
+    db_session.add(emp_b)
+    await db_session.flush()
+    user_b = Usuario(
+        empresa_id=emp_b.id, nome="B", email="d4@b.com",
+        senha_hash=hash_password("x"), papel="admin",
+    )
+    db_session.add(user_b)
+    await db_session.flush()
+    token_b = create_access_token({"sub": str(user_b.id), "papel": "admin", "empresa_id": emp_b.id})
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=headers_b)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_distribuicao_grupos_com_subgrupos(
+    client: AsyncClient, auth_headers: dict, obra, versao_ativa, db_session
+):
+    """Items in subgroups are attributed to their root group."""
+    grupo_raiz = Grupo(versao_id=versao_ativa.id, nome="Pavimentação", ordem=0, pai_id=None)
+    db_session.add(grupo_raiz)
+    await db_session.flush()
+
+    subgrupo = Grupo(versao_id=versao_ativa.id, nome="Sub-pavimentação", ordem=0, pai_id=grupo_raiz.id)
+    db_session.add(subgrupo)
+    await db_session.flush()
+
+    # Item directly in root group: total = 1 * 300 = 300
+    db_session.add(Item(
+        grupo_id=grupo_raiz.id, quantidade=Decimal("1"), unidade="T",
+        preco_unitario_sem_bdi=Decimal("300"), preco_unitario_com_bdi=Decimal("330"),
+    ))
+    # Item in subgroup: total = 1 * 700 = 700
+    db_session.add(Item(
+        grupo_id=subgrupo.id, quantidade=Decimal("1"), unidade="T",
+        preco_unitario_sem_bdi=Decimal("700"), preco_unitario_com_bdi=Decimal("770"),
+    ))
+    await db_session.flush()
+    versao_ativa.total_sem_bdi = Decimal("1000")
+    await db_session.flush()
+
+    r = await client.get(f"/obras/{obra.id}/distribuicao-grupos", headers=auth_headers)
+    assert r.status_code == 200
+    data = r.json()
+    # Only root group should appear, with total = 300 + 700 = 1000
+    assert len(data["grupos"]) == 1
+    assert data["grupos"][0]["grupo_nome"] == "Pavimentação"
+    assert pytest.approx(data["grupos"][0]["participacao_pct"], abs=0.1) == 100.0

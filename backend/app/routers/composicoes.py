@@ -79,6 +79,14 @@ async def create_composicao(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    dup = await db.execute(
+        select(Composicao).where(
+            Composicao.empresa_id == current_user.empresa_id,
+            Composicao.codigo == body.codigo,
+        )
+    )
+    if dup.scalar_one_or_none() is not None:
+        raise HTTPException(status_code=409, detail="Código já cadastrado")
     comp = Composicao(
         empresa_id=current_user.empresa_id,
         origem="propria",
@@ -106,9 +114,10 @@ async def importar_composicoes(
 ):
     if origem not in ("sinapi", "sicro"):
         raise HTTPException(status_code=422, detail="origem deve ser 'sinapi' ou 'sicro'")
-    from app.services.composicao_service import import_composicoes_csv
+    from app.services.composicao_service import import_composicoes
     conteudo = await file.read()
-    return await import_composicoes_csv(origem=origem, conteudo=conteudo, db=db)
+    filename = file.filename or "upload.csv"
+    return await import_composicoes(origem=origem, conteudo=conteudo, filename=filename, db=db)
 
 
 @router.get("/{composicao_id}", response_model=ComposicaoOut)
@@ -130,6 +139,15 @@ async def update_composicao(
     db: AsyncSession = Depends(get_db),
 ):
     comp = await _get_composicao_propria(composicao_id, current_user, db)
+    if body.codigo is not None and body.codigo != comp.codigo:
+        dup = await db.execute(
+            select(Composicao).where(
+                Composicao.empresa_id == current_user.empresa_id,
+                Composicao.codigo == body.codigo,
+            )
+        )
+        if dup.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=409, detail="Código já cadastrado")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(comp, field, value)
     await db.commit()

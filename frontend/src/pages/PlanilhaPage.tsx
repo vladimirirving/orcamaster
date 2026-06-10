@@ -10,6 +10,7 @@ import PainelLateral from '@/components/planilha/PainelLateral'
 import BDIModal from '@/components/planilha/BDIModal'
 import CronogramaTab from '@/components/planilha/CronogramaTab'
 import MedicaoTab from '@/components/planilha/MedicaoTab'
+import ImportarPlanilhaModal from '@/components/planilha/ImportarPlanilhaModal'
 
 type Tab = 'planilha' | 'cronograma' | 'medicao'
 
@@ -19,6 +20,7 @@ export default function PlanilhaPage() {
   const numVersaoId = Number(versaoId)
   const { versao, bdi, setVersao, setBdi, setGrupos } = useOrcamento()
   const [bdiModalOpen, setBdiModalOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('planilha')
 
   useEffect(() => {
@@ -59,6 +61,14 @@ export default function PlanilhaPage() {
         )}
 
         <div className="ml-auto flex items-center gap-3">
+          {!isReadOnly && (
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="text-sm text-gray-600 hover:text-blue-600 border border-gray-200 px-3 py-1 rounded-lg"
+            >
+              ↑ Importar Excel
+            </button>
+          )}
           <button
             onClick={() => setBdiModalOpen(true)}
             className="text-sm text-gray-600 hover:text-blue-600 border border-gray-200 px-3 py-1 rounded-lg"
@@ -108,6 +118,16 @@ export default function PlanilhaPage() {
         <span className="text-gray-500">Total S/BDI: <span className="font-semibold text-gray-900">{fmtBRL(versao?.total_sem_bdi)}</span></span>
         <span className="text-gray-500">Total C/BDI: <span className="font-semibold text-blue-700">{fmtBRL(versao?.total_com_bdi)}</span></span>
       </div>
+      {importModalOpen && (
+        <ImportarPlanilhaModal
+          versaoId={numVersaoId}
+          onClose={() => setImportModalOpen(false)}
+          onSuccess={() => {
+            setImportModalOpen(false)
+            getGrupos(numVersaoId).then(setGrupos).catch(() => {})
+          }}
+        />
+      )}
       <BDIModal
         open={bdiModalOpen}
         onOpenChange={setBdiModalOpen}

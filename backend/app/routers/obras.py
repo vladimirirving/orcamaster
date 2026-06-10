@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.cliente import Cliente as ClienteModel
 from app.models.obra import Obra
 from app.models.usuario import Usuario
 from app.models.versao import Versao
@@ -15,6 +16,35 @@ from app.services.versao_service import clone_versao
 router = APIRouter(prefix="/obras", tags=["obras"])
 
 
+async def _set_cliente_nome(obra, db) -> None:
+    """Populate transient cliente_nome field for ObraOut serialization."""
+    if obra.cliente_id:
+        r = await db.execute(
+            select(ClienteModel).where(
+                ClienteModel.id == obra.cliente_id,
+                ClienteModel.empresa_id == obra.empresa_id,
+            )
+        )
+        c = r.scalar_one_or_none()
+        obra.cliente_nome = c.nome if c else None
+    else:
+        obra.cliente_nome = None
+
+
+async def _validate_cliente_id(cliente_id: int | None, empresa_id: int, db: AsyncSession) -> None:
+    """Raise 422 if cliente_id is provided but doesn't belong to this empresa."""
+    if cliente_id is None:
+        return
+    exists = await db.scalar(
+        select(ClienteModel.id).where(
+            ClienteModel.id == cliente_id,
+            ClienteModel.empresa_id == empresa_id,
+        )
+    )
+    if not exists:
+        raise HTTPException(status_code=422, detail="cliente_id inválido")
+
+
 @router.get("", response_model=List[ObraOut])
 async def list_obras(
     current_user: Usuario = Depends(get_current_user),
@@ -23,7 +53,10 @@ async def list_obras(
     result = await db.execute(
         select(Obra).where(Obra.empresa_id == current_user.empresa_id)
     )
-    return result.scalars().all()
+    obras = result.scalars().all()
+    for o in obras:
+        await _set_cliente_nome(o, db)
+    return obras
 
 
 @router.post("", response_model=ObraOut, status_code=status.HTTP_201_CREATED)
@@ -32,6 +65,7 @@ async def create_obra(
     current_user: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await _validate_cliente_id(body.cliente_id, current_user.empresa_id, db)
     obra = Obra(
         empresa_id=current_user.empresa_id,
         nome=body.nome,
@@ -42,6 +76,7 @@ async def create_obra(
         tipo_obra=body.tipo_obra,
         estado="em_elaboracao",
         responsavel_id=body.responsavel_id,
+        cliente_id=body.cliente_id,
         data_criacao=date.today(),
         data_prazo=body.data_prazo,
     )
@@ -52,6 +87,7 @@ async def create_obra(
     db.add(versao)
     await db.commit()
     await db.refresh(obra)
+    await _set_cliente_nome(obra, db)
     return obra
 
 
@@ -67,6 +103,7 @@ async def get_obra(
     obra = result.scalar_one_or_none()
     if obra is None:
         raise HTTPException(status_code=404, detail="Obra não encontrada")
+    await _set_cliente_nome(obra, db)
     return obra
 
 
@@ -83,10 +120,13 @@ async def update_obra(
     obra = result.scalar_one_or_none()
     if obra is None:
         raise HTTPException(status_code=404, detail="Obra não encontrada")
+    if body.cliente_id is not None:
+        await _validate_cliente_id(body.cliente_id, current_user.empresa_id, db)
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(obra, field, value)
     await db.commit()
     await db.refresh(obra)
+    await _set_cliente_nome(obra, db)
     return obra
 
 

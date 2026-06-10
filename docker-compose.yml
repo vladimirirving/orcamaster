@@ -22,12 +22,16 @@ services:
       - ./backend:/app
       - ./tests:/app/tests
       - pacotes_data:/app/pacotes
+      - diario_data:/app/diario
+      - contratos_data:/app/contratos
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-orcaavml}:${POSTGRES_PASSWORD:-orcaavml}@db:5432/${POSTGRES_DB:-orcaavml}
       TEST_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-orcaavml}:${POSTGRES_PASSWORD:-orcaavml}@db:5432/${POSTGRES_DB:-orcaavml}_test
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-32-chars-min}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       PACOTES_DIR: /app/pacotes
+      DIARIO_DIR: /app/diario
+      CONTRATOS_DIR: /app/contratos
     ports:
       - "8000:8000"
     depends_on:
@@ -48,3 +52,5 @@ services:
 volumes:
   postgres_data:
   pacotes_data:
+  diario_data:
+  contratos_data:
