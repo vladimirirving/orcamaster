@@ -16,3 +16,4 @@ from app.models.pacote_job import PacoteJob  # noqa: F401
 from app.models.proposta_config import PropostaConfig  # noqa: F401
 from app.models.diario import DiarioObra, DiarioFoto  # noqa: F401
 from app.models.contrato import Contrato, Aditivo  # noqa: F401
+from app.models.insumo_item import InsumoItem  # noqa: F401
