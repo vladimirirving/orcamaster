@@ -343,3 +343,13 @@ export interface Contrato {
   criado_em: string
   aditivos: Aditivo[]
 }
+
+export interface Alerta {
+  tipo: 'contrato_vencido' | 'contrato_vencendo' | 'desvio_orcamento' | 'medicao_atrasada' | 'item_revisao'
+  severidade: 'alta' | 'media' | 'baixa'
+  obra_id: number
+  obra_nome: string
+  titulo: string
+  detalhe: string | null
+  link: string
+}
