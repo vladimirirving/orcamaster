@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import PerfilModal from '@/components/layout/PerfilModal'
+import { getAlertas } from '@/api/alertas'
+import type { Alerta } from '@/types'
+import AlertasPanel from '@/components/layout/AlertasPanel'
 
 function NavItem({ to, label, icon, end }: { to: string; label: string; icon: React.ReactNode; end?: boolean }) {
   return (
@@ -93,6 +96,16 @@ export default function Sidebar() {
   const [cadastrosOpen, setCadastrosOpen] = useState(true)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [perfilOpen, setPerfilOpen] = useState(false)
+  const [alertas, setAlertas] = useState<Alerta[]>([])
+  const [painelOpen, setPainelOpen] = useState(false)
+
+  useEffect(() => {
+    getAlertas().then(setAlertas).catch(() => {})
+    const interval = setInterval(() => {
+      getAlertas().then(setAlertas).catch(() => {})
+    }, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   async function handleLogout() {
     setUserMenuOpen(false)
@@ -146,6 +159,30 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="px-3 py-4 border-t border-gray-800 space-y-1">
+          {/* Sino de alertas */}
+          <button
+            onClick={() => setPainelOpen(v => !v)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <span className="shrink-0 w-4 h-4 flex items-center justify-center relative">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {alertas.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-white flex items-center justify-center" style={{ fontSize: '8px', lineHeight: '1' }}>
+                  {alertas.length > 9 ? '9+' : alertas.length}
+                </span>
+              )}
+            </span>
+            Alertas
+            {alertas.length > 0 && (
+              <span className="ml-auto text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full font-medium">
+                {alertas.length}
+              </span>
+            )}
+          </button>
+
           {papel === 'admin' && (
             <NavItem to="/configuracoes" label="Configurações" icon={ICONS.settings} />
           )}
@@ -187,6 +224,9 @@ export default function Sidebar() {
       </aside>
 
       {perfilOpen && <PerfilModal onClose={() => setPerfilOpen(false)} />}
+      {painelOpen && (
+        <AlertasPanel alertas={alertas} onClose={() => setPainelOpen(false)} />
+      )}
     </>
   )
 }
