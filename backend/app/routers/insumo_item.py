@@ -1,14 +1,16 @@
 # backend/app/routers/insumo_item.py
 from datetime import date
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.insumo_item import InsumoItem
 from app.models.usuario import Usuario
-from app.schemas.insumo_item import InsumoItemListOut, InsumoItemOut
+from app.schemas.insumo_item import (
+    InsumoItemCreate, InsumoItemListOut, InsumoItemOut, InsumoItemUpdate,
+)
 
 router = APIRouter(prefix="/insumos", tags=["insumos"])
 
@@ -70,3 +72,60 @@ async def list_insumos(
     items = (await db.execute(stmt)).scalars().all()
 
     return {"items": items, "total": total}
+
+
+@router.post("", response_model=InsumoItemOut, status_code=status.HTTP_201_CREATED)
+async def create_insumo(
+    body: InsumoItemCreate,
+    current_user: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    item = InsumoItem(
+        banco="propria",
+        empresa_id=current_user.empresa_id,
+        **body.model_dump(),
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+@router.patch("/{item_id}", response_model=InsumoItemOut)
+async def update_insumo(
+    item_id: int,
+    body: InsumoItemUpdate,
+    current_user: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(InsumoItem).where(InsumoItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Insumo não encontrado")
+    if item.banco != "propria" or item.empresa_id != current_user.empresa_id:
+        raise HTTPException(
+            status_code=403, detail="Apenas insumos próprios podem ser editados"
+        )
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(item, field, value)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_insumo(
+    item_id: int,
+    current_user: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(InsumoItem).where(InsumoItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Insumo não encontrado")
+    if item.banco != "propria" or item.empresa_id != current_user.empresa_id:
+        raise HTTPException(
+            status_code=403, detail="Apenas insumos próprios podem ser excluídos"
+        )
+    await db.delete(item)
+    await db.commit()
